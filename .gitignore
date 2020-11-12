@@ -1,0 +1,5 @@
+/data_generator.py
+/reptile01.slurm
+/reptile01_clean.slurm
+/reptile01gpu.slurm
+/utilities03.py
