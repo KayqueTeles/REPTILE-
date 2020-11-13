@@ -28,7 +28,7 @@ inner_iters = 4
 dataset_size = 20000
 TR = int(dataset_size*0.8)
 vallim = int(dataset_size*0.2)
-version = 7  ###LET'S SEE WHAT YOU'RE MADE OF!
+version = 7  
 index = 0
 normalize = 'yes'
 
@@ -67,7 +67,7 @@ for a in range(rows):
         temp_image = train_dataset.data[sample_keys[a]][b]
         temp_image = np.stack((temp_image[:, :, 0],) * 3, axis=2)
         temp_image *= 255
-        temp_image = np.clip(temp_image, 0, 255).astype("uint8")
+        #temp_image = np.clip(temp_image, 0, 255).astype("uint8")
         if b == 2:
             axarr[a, b].set_title("Class : " + sample_keys[a])
         imgs, index = save_image(temp_image, version, index, 3, input_shape)
@@ -148,8 +148,8 @@ for meta_iter in range(meta_iters):   ##FROM 0 TO 2000
             )
             print(" -- TRAINSET:")
             print(train_set)   ##REPEAT_DATASET HAS NO ATTRIBUTE "SHAPE"
-            print(" -- TESTIMAGES:")
-            print(test_images)  ##REPEAT_DATASET HAS NO ATTRIBUTE "SHAPE"
+            #print(" -- TESTIMAGES:")
+            #print(test_images)  ##REPEAT_DATASET HAS NO ATTRIBUTE "SHAPE"
             print(" -- TESTLABELS:")
             print(test_labels)    ##REPEAT_DATASET HAS NO ATTRIBUTE "SHAPE"
             old_vars = model.get_weights()

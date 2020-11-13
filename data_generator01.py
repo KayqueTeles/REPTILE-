@@ -27,37 +27,14 @@ class Dataset:
         x_data = x_datasaved['data']
         x_data = x_data[:,:,:,Ni_channels:Ni_channels + N_channels]
 
-        ###################NORMALIZE!#############
-        #x_data = (x_data / 255) #- 0.5
-        #index = save_clue(x_data,)
-
         y_data, x_data = TestSamplesBalancer(y_data, x_data, vallim, TR, split)
         x_data = (x_data - np.nanmin(x_data))/np.ptp(x_data)
 
         for y in range(int(len(y_data))):
             image = x_data[y,:,:,:]
             print(image.shape)
-            #img = np.zeros([image[:,:,0].shape[1],image[:,:,0].shape[1],3])
-            #for tt in range(N_channels):
-            #    image[:,:,tt] = np.float32(image[:,:,tt])
-            #    image[:,:,tt] = cv2.fastNlMeansDenoising(image[:,:,tt].astype(np.uint8),None,30,7,21)
-            #    image[:,:,tt] = cv2.normalize(image[:,:,tt], None, 0, 255, cv2.NORM_MINMAX)
-                #image[:,:,tt] = convert(image[:,:,tt], 0, 255, np.uint8)
-            #    image[:,:,tt] = np.uint8(image[:,:,tt])
-            #    image[:,:,tt] = imadjust(image[:,:,tt])
-                
-             #   img[:,:,tt] = image[:,:,tt] 
-
-            #image = np.rollaxis(image, 2, 0) 
-            #image = toimage(image)
-            #image = np.array(image)
-            #temp_image, index = save_image(image, version, index, 1, input_size)
-            #image = tf.image.convert_image_dtype(image, tf.float32)
             image = np.array(image)
-            #image = tf.image.rgb_to_grayscale(image)
-            #image = tf.image.resize(image, [101, 101], 1)
-            label = str(y_data[y])#.numpy()
-            #label = label.numpy()
+            label = str(y_data[y])
             if label not in self.data:
                 self.data[label] = []
             self.data[label].append(image)

@@ -185,7 +185,6 @@ def TestSamplesBalancer(y_data, x_data, vallim, TR, split):
             else: 
                 y_excess = np.append(int(y), y_excess)
                 
-    
     y_y = np.append(y_no, y_yes)
     np.random.shuffle(y_y)
 
@@ -204,6 +203,7 @@ def TestSamplesBalancer(y_data, x_data, vallim, TR, split):
 
     print(" ** x_data:  ", x_data.shape)
     print(" ** y_data:  ", y_data.shape)
+    print(y_data)
 
     return [y_data, x_data]
 
@@ -452,12 +452,12 @@ def bytescale(data, cmin=None, cmax=None, high=255, low=0):
 def save_image(vector, version, index, step, input_size):
     #temp_image = np.stack((vector[:, :, 0],) * 3, axis=2)
     image = vector
-    for tt in range(3):
+    #for tt in range(3):
         
-        image[:,:,tt] = np.float32(image[:,:,tt])
-        image[:,:,tt] = cv2.normalize(image[:,:,tt], None, 0, 255, cv2.NORM_MINMAX)
-        image[:,:,tt] = np.uint8(image[:,:,tt])
-        image[:,:,tt] = imadjust(image[:,:,tt])
+        #image[:,:,tt] = np.float32(image[:,:,tt])
+        #image[:,:,tt] = cv2.normalize(image[:,:,tt], None, 0, 255, cv2.NORM_MINMAX)
+        #image[:,:,tt] = np.uint8(image[:,:,tt])
+        #image[:,:,tt] = imadjust(image[:,:,tt])
         #other = plt.figure()
         #plt.imshow(image[:,:,tt])
         #other.savefig("save_im_ver_%s_ch_%s_ind_%s.png" % (version, tt, index))
