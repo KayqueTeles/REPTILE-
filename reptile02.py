@@ -28,7 +28,7 @@ inner_iters = 4
 dataset_size = 20000
 TR = int(dataset_size*0.8)
 vallim = int(dataset_size*0.2)
-version = 6
+version = 7  ###LET'S SEE WHAT YOU'RE MADE OF!
 index = 0
 normalize = 'yes'
 
