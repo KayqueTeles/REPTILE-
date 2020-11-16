@@ -1,16 +1,8 @@
-import matplotlib.pyplot as plt
-import numpy as np
-import random
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
-#import tensorflow_datasets as tfds
-import os, scipy.misc
-import h5py
-import pandas as pd
+import matplotlib.pyplot as plt, numpy as np, random, tensorflow as tf, cv2, os, scipy.misc, h5py, pandas as pd
 from rept_utilities import TestSamplesBalancer, imadjust, convert, toimage, save_image, save_clue
 from PIL import Image
-import cv2
+from tensorflow import keras
+from tensorflow.keras import layers
 
 class Dataset:
     def __init__(self, training, version, TR, vallim, index, input_shape):
@@ -33,7 +25,13 @@ class Dataset:
         for y in range(int(len(y_data))):
             image = x_data[y,:,:,:]
             print(image.shape)
-            image = np.array(image)
+            #last addicione
+            image = tf.image.convert_image_dtype(image, tf.float32)
+            print(image.shape)
+            #image = np.rollaxis(image, )
+            #image = image.numpy()
+            #image = np.array(image)
+            #print(image.shape)
             label = str(y_data[y])
             if label not in self.data:
                 self.data[label] = []

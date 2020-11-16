@@ -203,7 +203,6 @@ def TestSamplesBalancer(y_data, x_data, vallim, TR, split):
 
     print(" ** x_data:  ", x_data.shape)
     print(" ** y_data:  ", y_data.shape)
-    print(y_data)
 
     return [y_data, x_data]
 

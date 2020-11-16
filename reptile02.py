@@ -8,7 +8,7 @@ from tensorflow.keras import layers
 from data_generator01 import Dataset
 from pathlib import Path
 import os
-from rept_utilities import data_downloader, ROCCurveCalculate, filemover, fileremover, save_image, save_clue
+from rept_utilities import data_downloader, ROCCurveCalculate, toimage, filemover, fileremover, save_image, save_clue
 from PIL import Image
 
 Path('/home/kayque/LENSLOAD/').parent
@@ -28,7 +28,7 @@ inner_iters = 4
 dataset_size = 20000
 TR = int(dataset_size*0.8)
 vallim = int(dataset_size*0.2)
-version = 7  
+version = 9  
 index = 0
 normalize = 'yes'
 
@@ -65,12 +65,17 @@ sample_keys = list(train_dataset.data.keys())
 for a in range(rows):
     for b in range(cols):
         temp_image = train_dataset.data[sample_keys[a]][b]
-        temp_image = np.stack((temp_image[:, :, 0],) * 3, axis=2)
-        temp_image *= 255
-        #temp_image = np.clip(temp_image, 0, 255).astype("uint8")
+        print(temp_image.shape)
+        #temp_image = np.stack((temp_image[:, :, 0],) * 3, axis=2)
+        #temp_image = np.stack(temp_image, axis=2)
+        temp_image = toimage(temp_image)
+        #print(temp_image.shape)
+        #temp_image *= 255
+        #temp_image = np.clip(temp_image, 0, 255).astype("uint32")
+        #print(temp_image.shape)
         if b == 2:
             axarr[a, b].set_title("Class : " + sample_keys[a])
-        imgs, index = save_image(temp_image, version, index, 3, input_shape)
+        #imgs, index = save_image(temp_image, version, index, 3, input_shape)
         axarr[a, b].imshow(temp_image)#, cmap="gray")
         axarr[a, b].xaxis.set_visible(False)
         axarr[a, b].yaxis.set_visible(False)
