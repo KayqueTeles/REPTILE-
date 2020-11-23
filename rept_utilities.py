@@ -7,266 +7,12 @@ from sklearn import metrics
 from sklearn.metrics import roc_auc_score
 from keras import backend as K
 from keras.layers import Input
-from keras.applications.resnet50 import ResNet50
-from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, CSVLogger
 from collections import Counter
 
-def fileremover(TR, version, shots, input_shape, meta_iters, normalize):
+####################################################3#############
+##############SOME NECESSARY FUNCTIONS############################
+##################################################################
 
-    piccounter = 0
-    print('\n ** Removing specified files and folders...')
-    if os.path.exists('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        os.remove('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
-        piccounter = piccounter + 1
-    if os.path.exists('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        os.remove('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
-        piccounter = piccounter + 1
-    if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        os.remove('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
-        piccounter = piccounter + 1   
-    
-    for lo in range(10):
-        for b in range(TR*100):
-            if os.path.exists("save_im_ver_%s_ch_%s_ind_%s.png" % (version, lo, b)):
-                os.remove("save_im_ver_%s_ch_%s_ind_%s.png" % (version, lo, b))
-                piccounter = piccounter + 1     
-            if os.path.exists("save_im_full_ver_%s_ind_%s.png" % (version, b)):
-                os.remove("save_im_full_ver_%s_ind_%s.png" % (version, b))
-                piccounter = piccounter + 1     
-
-    print(" ** Removing done. %s .png files removed." % (piccounter))
-
-    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version)):
-        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
-    
-
-def filemover(TR, version, shots, input_shape, meta_iters, normalize):
-
-    print('\n ** Moving created files to a certain folder.')
-    counter = 0
-    print(" ** Checking if there's a GRAPHS folder...")
-    if os.path.exists('REPT-GRAPHS'):
-        print(" ** GRAPHS file found. Moving forward.")
-    else:
-        print(" ** None found. Creating one.")
-        os.mkdir('REPT-GRAPHS')
-        print(" ** Done!")
-    print(" ** Checking if there's an REP folder...")
-    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version)):
-        print(' ** Yes. There is. Trying to delete and renew...')
-        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
-        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
-        print(' ** Done!')
-    else:
-        print(" ** None found. Creating one.")
-        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
-        print(" ** Done!")
-
-    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version)):
-        print(' ** Yes. There is. Trying to delete and renew...')
-        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
-        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
-        print(' ** Done!')
-    else:
-        print(" ** None found. Creating one.")
-        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
-        print(" ** Done!")
-
-    dest1 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}'. format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
-    dest2 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES'. format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
-
-    if os.path.exists('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        shutil.move("./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
-        counter = counter + 1
-    if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        shutil.move('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
-        counter = counter + 1
-    if os.path.exists('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        shutil.move('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
-        counter = counter + 1
-    
-    for lo in range(10):
-        for b in range(TR*50): 
-            if os.path.exists("save_im_ver_%s_ch_%s_ind_%s.png" % (version, lo, b)):
-                shutil.move("save_im_ver_%s_ch_%s_ind_%s.png" % (version, lo, b), dest2)
-                counter = counter + 1     
-            if os.path.exists("save_im_full_ver_%s_ind_%s.png" % (version, b)):
-                shutil.move("save_im_full_ver_%s_ind_%s.png" % (version, b), dest2)
-                counter = counter + 1  
-    print(" ** Moving done. %s files moved." % counter)
-    print(dest1)
-
-def ROCCurveCalculate(y_test, x_test, model):
-
-    probs = model.predict(x_test)
-    probsp = probs[:, 1]
-    y_new = y_test#[:, 1]
-    thres = 1000
-
-    threshold_v = np.linspace(1, 0, thres)
-    tpr, fpr = ([] for i in range(2))
-    
-    for tt in range(0, len(threshold_v), 1):
-        thresh = threshold_v[tt]
-        TPscore, FPscore, TNscore, FNscore = (0 for i in range(4))
-        for xz in range(0, len(probsp), 1):
-            if probsp[xz] > thresh:
-                if y_new[xz] == 1:                
-                    TPscore = TPscore + 1
-                else:
-                    FPscore = FPscore + 1
-            else:
-                if y_new[xz] == 0:
-                    TNscore = TNscore + 1
-                else:
-                    FNscore = FNscore + 1
-        TPRate = TPscore / (TPscore + FNscore)
-        FPRate = FPscore / (FPscore + TNscore)
-        tpr.append(TPRate)
-        fpr.append(FPRate)           
-
-    auc2 = roc_auc_score(y_test, probsp)
-    auc = metrics.auc(fpr, tpr)
-    print('\n ** AUC (via metrics.auc): %s, AUC (via roc_auc_score): %s' % (auc, auc2))
-    return [tpr, fpr, auc, auc2, thres]
-
-def data_downloader():
-    print('\n ** Checking files...')
-    if os.path.exists('./lensdata/x_data20000fits.h5'):
-        print(" ** Files from lensdata.tar.gz were already downloaded.")
-    else:
-        print("n ** Downloading lensdata.zip...")
-        wget.download('https://clearskiesrbest.files.wordpress.com/2019/02/lensdata.zip')
-        print(" ** Download successful. Extracting...")
-        with zipfile.ZipFile("lensdata.zip", 'r') as zip_ref:
-            zip_ref.extractall() 
-            print(" ** Extracted successfully.")
-        print(" ** Extracting data from lensdata.tar.gz...")
-        tar = tarfile.open("lensdata.tar.gz", "r:gz")
-        tar.extractall()
-        tar.close()
-        print(" ** Extracted successfully.")
-    if os.path.exists('./lensdata/x_data20000fits.h5'):
-        print(" ** Files from lensdata.tar.gz were already extracted.")
-    else:
-        print(" ** Extracting data from #DataVisualization.tar.gz...")     
-        tar = tarfile.open("./lensdata/DataVisualization.tar.gz", "r:gz")
-        tar.extractall("./lensdata/")
-        tar.close()
-        print(" ** Extracted successfully.")
-        print(" ** Extrating data from x_data20000fits.h5.tar.gz...")     
-        tar = tarfile.open("./lensdata/x_data20000fits.h5.tar.gz", "r:gz")
-        tar.extractall("./lensdata/")
-        tar.close()
-        print(" ** Extracted successfully.") 
-    if os.path.exists('lensdata.tar.gz'):
-            os.remove('lensdata.tar.gz')
-    if os.path.exists('lensdata.zip'):
-            os.remove('lensdata.zip')
-    for pa in range(0, 10, 1):
-        if os.path.exists('lensdata ({}).zip'. format(pa)):
-            os.remove('lensdata ({}).zip'. format(pa))
-
-def TestSamplesBalancer(y_data, x_data, vallim, TR, split):
-    
-    y_size = len(y_data)
-    y_yes, y_no, y_excess = ([] for i in range(3))
-    PARAM = TR/2
-    print(' -- Applying classes balancing...')
-    for y in range(0,y_size,1):
-        if y_data[y] == 1:
-            if len(y_yes)<(PARAM):
-                y_yes = np.append(int(y), y_yes)
-            else: 
-                y_excess = np.append(int(y), y_excess)
-        else:
-            if len(y_no)<(PARAM):
-                y_no = np.append(int(y), y_no)
-            else: 
-                y_excess = np.append(int(y), y_excess)
-                
-    y_y = np.append(y_no, y_yes)
-    np.random.shuffle(y_y)
-
-    np.random.shuffle(y_excess)
-    y_y = y_y.astype(int)
-    y_excess = y_excess.astype(int)
-
-    if split == "train":
-        y_data = y_data[y_y]
-        x_data = x_data[y_y]
-    else:
-        y_data = y_data[y_excess]
-        x_data = x_data[y_excess]
-    print(" ** split:")
-    print(split)
-
-    print(" ** x_data:  ", x_data.shape)
-    print(" ** y_data:  ", y_data.shape)
-
-    return [y_data, x_data]
-
-def FScoreCalc(y_test, x_test, model):
-
-    probsp = np.argmax(model.predict(x_test), axis=-1)
-    y_test = np.argmax(y_test, axis =-1)
-
-    f_1_score = sklearn.metrics.f1_score(y_test, probsp)
-    f_001_score = sklearn.metrics.fbeta_score(y_test, probsp, beta=0.01)
-    
-    print('\n ** F1_Score: %s, F0.01_Score: %s' % (f_1_score, f_001_score))
-    return [f_1_score, f_001_score]
-
-def imadjust(src, tol=0.5, vin=[0,255], vout=(0,255)):
-    # src : input one-layer image (numpy array)
-    # tol : tolerance, from 0 to 100.
-    # vin  : src image bounds
-    # vout : dst image bounds
-    # return : output img
-
-    dst = src.copy()
-    tol = max(0, min(100, tol))
-
-    if tol > 0:
-        # Compute in and out limits
-        # Histogram
-        hist = np.zeros(256, dtype=np.int)
-        for r in range(int(src.shape[0])):
-            for c in range(int(src.shape[1])):
-                hist[int(src[r,c])] += 1
-        # Cumulative histogram
-        cum = hist.copy()
-        for i in range(1, len(hist)):
-            cum[i] = cum[i - 1] + hist[i]
-
-        # Compute bounds
-        total = src.shape[0] * src.shape[1]
-        low_bound = total * tol / 100
-        upp_bound = total * (100 - tol) / 100
-        vin[0] = bisect.bisect_left(cum, low_bound)
-        vin[1] = bisect.bisect_left(cum, upp_bound)
-
-    # Stretching
-    if (vin[1] - vin[0]) > 0:
-        scale = (vout[1] - vout[0]) / (vin[1] - vin[0])
-    else:
-        scale = 0
-        
-    for r in range(dst.shape[0]):
-        for c in range(dst.shape[1]):
-            vs = max(src[r,c] - vin[0], 0)
-            vd = min(int(vs * scale + 0.5) + vout[0], vout[1])
-            dst[r,c] = vd
-    return dst
-
-def convert(img, target_type_min, target_type_max, target_type):
-    imin = img.min()
-    imax = img.max()
-
-    a = (target_type_max - target_type_min) / (imax - imin)
-    b = target_type_max - a * imax
-    new_img = (a * img + b).astype(target_type)
-    return new_img
 
 def toimage(arr, high=255, low=0, cmin=None, cmax=None, pal=None,
             mode=None, channel_axis=None):
@@ -449,40 +195,226 @@ def bytescale(data, cmin=None, cmax=None, high=255, low=0):
     return (bytedata.clip(low, high) + 0.5).astype(np.uint8)
 
 def save_image(vector, version, index, step, input_size):
-    #temp_image = np.stack((vector[:, :, 0],) * 3, axis=2)
-    image = vector
-    #for tt in range(3):
-        
-        #image[:,:,tt] = np.float32(image[:,:,tt])
-        #image[:,:,tt] = cv2.normalize(image[:,:,tt], None, 0, 255, cv2.NORM_MINMAX)
-        #image[:,:,tt] = np.uint8(image[:,:,tt])
-        #image[:,:,tt] = imadjust(image[:,:,tt])
-        #other = plt.figure()
-        #plt.imshow(image[:,:,tt])
-        #other.savefig("save_im_ver_%s_ch_%s_ind_%s.png" % (version, tt, index))
-        #image[:,:,tt] = cv2.fastNlMeansDenoising(image[:,:,tt].astype(np.uint8),None,30,7,21)
-    #image = np.rollaxis(image, 2, 0) 
+    
+    image = vector 
     index = index + 1
     image = toimage(image)
     image.save("save_im_full_ver_%s_ind_%s.png" % (version, index))
-    image = np.array(image)
     return [image, index]
 
-def save_clue(vector, label, version, index, step, input_size, nrows, ncols):
+def save_clue(x_data, y_data, TR, version, step, input_shape, nrows, ncols, index):
 
-    _, arrt = plt.subplots(nrows=rows, ncols=cols, figsize=(nrows, ncols))
+    figcount = 0
+    plt.figure()
+    fig, axs = plt.subplots(nrows, ncols, figsize=(20,20))
+    for i in range(nrows):
+        for j in range(ncols):
+            temp_image = toimage(np.array(x_data[figcount, :, :, :]))
+            axs[i, j].imshow(temp_image)
+            axs[i, j].set_title('Class: %s' % y_data[figcount])
+            figcount = figcount + 1
 
-    for a in range(nrows):
-        for b in range(ncols):
-            img = vector[index, :, :, :]
-            img = np.stack((img[:, :, 0],) * 3, axis=2)
-            img *= 255
-            img = np.clip(img, 0, 255).astype("uint8")
-            arrt[a, b].imshow(img)#, cmap="gray")
-            arrt[a, b].xaxis.set_visible(False)
-            arrt[a, b].yaxis.set_visible(False)
-            index = index + 1
-            
-    plt.savefig("COLLECTION_step_{}_save_{}_{}x{}_size_{}th_version.png". format(step, 7, input_shape, input_shape, version))
+    index = index + 1
+    plt.show()
+    plt.savefig("CLUE_FROM_DATASET_{}_samples_{}_version_{}_step_{}x{}_size_{}_num.png". format(TR, version, step, input_shape, input_shape, index))
+    return figcount
 
-    return [index]
+def fileremover(TR, version, shots, input_shape, meta_iters, normalize):
+
+    piccounter = 0
+    print('\n ** Removing specified files and folders...')
+    if os.path.exists('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
+        os.remove('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+        piccounter = piccounter + 1
+    if os.path.exists('./Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
+        os.remove('./Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+        piccounter = piccounter + 1
+    if os.path.exists('./Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
+        os.remove('./Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+        piccounter = piccounter + 1
+    if os.path.exists('./train_Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
+        os.remove('./train_Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+        piccounter = piccounter + 1
+    if os.path.exists('./model_REPTILE_version_%s.png' % version):
+        os.remove('./model_REPTILE_version_%s.png' % version)
+        piccounter = piccounter + 1
+    if os.path.exists('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
+        os.remove('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+        piccounter = piccounter + 1
+    if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
+        os.remove('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+        piccounter = piccounter + 1    
+    
+    for lo in range(10):
+        for b in range(TR):   
+            if os.path.exists('./CLUE_FROM_DATASET_{}_samples_{}_version_{}_step_{}x{}_size_{}_num.png'. format(TR, version, lo, input_shape, input_shape, b)):
+                os.remove('./CLUE_FROM_DATASET_{}_samples_{}_version_{}_step_{}x{}_size_{}_num.png'. format(TR, version, lo, input_shape, input_shape, b))
+                piccounter = piccounter + 1   
+
+    print(" ** Removing done. %s .png files removed." % (piccounter))
+
+    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version)):
+        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+    
+
+def filemover(TR, version, shots, input_shape, meta_iters, normalize):
+
+    print('\n ** Moving created files to a certain folder.')
+    counter = 0
+    print(" ** Checking if there's a GRAPHS folder...")
+    if os.path.exists('REPT-GRAPHS'):
+        print(" ** GRAPHS file found. Moving forward.")
+    else:
+        print(" ** None found. Creating one.")
+        os.mkdir('REPT-GRAPHS')
+        print(" ** Done!")
+    print(" ** Checking if there's an REP folder...")
+    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version)):
+        print(' ** Yes. There is. Trying to delete and renew...')
+        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+        print(' ** Done!')
+    else:
+        print(" ** None found. Creating one.")
+        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+        print(" ** Done!")
+
+    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version)):
+        print(' ** Yes. There is. Trying to delete and renew...')
+        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+        print(' ** Done!')
+    else:
+        print(" ** None found. Creating one.")
+        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+        print(" ** Done!")
+
+    dest1 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}'. format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+    dest2 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES'. format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+
+    if os.path.exists('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
+        shutil.move("./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
+        counter = counter + 1
+    if os.path.exists('./Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
+        shutil.move("./Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
+        counter = counter + 1
+    if os.path.exists('./Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
+        shutil.move("./Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
+        counter = counter + 1
+    if os.path.exists('./train_Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
+        shutil.move("./train_Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
+        counter = counter + 1
+    if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
+        shutil.move('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
+        counter = counter + 1
+    if os.path.exists('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
+        shutil.move('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
+        counter = counter + 1
+    if os.path.exists('./model_REPTILE_version_%s.png' % version):
+        shutil.move('./model_REPTILE_version_%s.png' % version, dest1)
+        counter = counter + 1
+    
+    for lo in range(10):
+        for b in range(TR):   
+            if os.path.exists('./CLUE_FROM_DATASET_{}_samples_{}_version_{}_step_{}x{}_size_{}_num.png'. format(TR, version, lo, input_shape, input_shape, b)):
+                shutil.move('./CLUE_FROM_DATASET_{}_samples_{}_version_{}_step_{}x{}_size_{}_num.png'. format(TR, version, lo, input_shape, input_shape, b), dest2)
+                counter = counter + 1   
+    print(" ** Moving done. %s files moved." % counter)
+    print(dest1)
+
+def ROCCurveCalculate(y_test, x_test, model):
+
+    probs = model.predict(x_test)
+    probsp = probs[:, 1]
+    y_new = y_test  #[:, 1]
+    thres = 1000
+
+    threshold_v = np.linspace(1, 0, thres)
+    tpr, fpr = ([] for i in range(2))
+    
+    for tt in range(0, len(threshold_v), 1):
+        thresh = threshold_v[tt]
+        TPscore, FPscore, TNscore, FNscore = (0 for i in range(4))
+        for xz in range(0, len(probsp), 1):
+            if probsp[xz] > thresh:
+                if y_new[xz] == 1:                
+                    TPscore = TPscore + 1
+                else:
+                    FPscore = FPscore + 1
+            else:
+                if y_new[xz] == 0:
+                    TNscore = TNscore + 1
+                else:
+                    FNscore = FNscore + 1
+        TPRate = TPscore / (TPscore + FNscore)
+        FPRate = FPscore / (FPscore + TNscore)
+        tpr.append(TPRate)
+        fpr.append(FPRate)           
+
+    auc2 = roc_auc_score(y_test, probsp)
+    auc = metrics.auc(fpr, tpr)
+    print('\n ** AUC (via metrics.auc): %s, AUC (via roc_auc_score): %s' % (auc, auc2))
+    return [tpr, fpr, auc, auc2, thres]
+
+def data_downloader():
+    print('\n ** Checking files...')
+    if os.path.exists('./lensdata/x_data20000fits.h5'):
+        print(" ** Files from lensdata.tar.gz were already downloaded.")
+    else:
+        print("n ** Downloading lensdata.zip...")
+        wget.download('https://clearskiesrbest.files.wordpress.com/2019/02/lensdata.zip')
+        print(" ** Download successful. Extracting...")
+        with zipfile.ZipFile("lensdata.zip", 'r') as zip_ref:
+            zip_ref.extractall() 
+            print(" ** Extracted successfully.")
+        print(" ** Extracting data from lensdata.tar.gz...")
+        tar = tarfile.open("lensdata.tar.gz", "r:gz")
+        tar.extractall()
+        tar.close()
+        print(" ** Extracted successfully.")
+    if os.path.exists('./lensdata/x_data20000fits.h5'):
+        print(" ** Files from lensdata.tar.gz were already extracted.")
+    else:
+        print(" ** Extracting data from #DataVisualization.tar.gz...")     
+        tar = tarfile.open("./lensdata/DataVisualization.tar.gz", "r:gz")
+        tar.extractall("./lensdata/")
+        tar.close()
+        print(" ** Extracted successfully.")
+        print(" ** Extrating data from x_data20000fits.h5.tar.gz...")     
+        tar = tarfile.open("./lensdata/x_data20000fits.h5.tar.gz", "r:gz")
+        tar.extractall("./lensdata/")
+        tar.close()
+        print(" ** Extracted successfully.") 
+    if os.path.exists('lensdata.tar.gz'):
+            os.remove('lensdata.tar.gz')
+    if os.path.exists('lensdata.zip'):
+            os.remove('lensdata.zip')
+    for pa in range(0, 10, 1):
+        if os.path.exists('lensdata ({}).zip'. format(pa)):
+            os.remove('lensdata ({}).zip'. format(pa))
+
+def binary_cross_entropy(actual, predicted):
+    sum_score = 0.0
+    print(" -- binary_cross step.")
+    for i in range(len(actual)):
+        print(sum_score)
+        summ = actual[i] * np.log(1e-15 + predicted[i])
+        sum_score = sum_score + summ
+        print(predicted[i])
+        print(actual[i])
+        mean_sum_score = 1.0 / len(actual) * sum_score
+    return -mean_sum_score
+
+def mean_squared_error(actual, predicted):
+    sum_square_error = 0.0
+    print(" -- binary_cross step.")
+    for i in range(len(actual)):
+        print(sum_square_error)
+        sum_square_error += (actual[i] - predicted[i])**2.0
+    mean_square_error = 1.0 / len(actual) * sum_square_error
+    print(predicted[i])
+    print(actual[i])
+    return mean_square_error
+
+####################################################3#############
+##################################################################F

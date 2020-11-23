@@ -11,42 +11,41 @@ from sklearn.metrics import roc_auc_score
 from keras import backend as K
 from keras.layers import Input
 from collections import Counter
-from rept_utilities import toimage, save_image, save_clue
+from rept_utilities import TestSamplesBalancer, toimage, save_image, save_clue
 
 class Dataset:
-    def __init__(self, x_data, y_data, split, version, TR, vallim, index, input_shape, num_channels):
-        #split = "train" if training else "test"
+    def __init__(self, training, version, TR, vallim, index, input_shape, num_channels):
+        split = "train" if training else "test"
         self.data = {}
-        
-        if split == "train":
-            x_data = x_data[0:TR,:,:,:]
-            y_data = y_data[0:TR]
-            step = 2
-        else:
-            if split == "test":
-                x_data = x_data[TR:(int(len(y_data))-vallim),:,:,:]
-                y_data = y_data[TR:(int(len(y_data))-vallim)]
-                step = 3
-            else:
-                x_data = x_data[(int(len(y_data))-vallim):(int(len(y_data))),:,:,:]
-                y_data = y_data[(int(len(y_data))-vallim):(int(len(y_data)))]
-                step = 4
+          
+        path = os.getcwd() + "/" + "lensdata/"
+        labels = pd.read_csv(path + 'y_data20000fits.csv',delimiter=',', header=None)
+        y_data = np.array(labels, np.uint8)
+        x_datasaved = pd.read_hdf(path + 'x_data20000fits.h5')
 
-        print(" ** split:", split)
+        print("\n ** Let's analyze this data!")
+        x_datasaved.describe()
+        x_datasaved.header()
+        x_datasaved = h5py.File(path + 'x_data20000fits.h5', 'r')
+        Ni_channels = 0 #first channel
+        N_channels = 3 #number of channels
 
-        print(" ** x_data:  ", x_data.shape)
-        print(" ** y_data:  ", y_data.shape)
+        x_data = x_datasaved['data']
+        x_data = x_data[:,:,:,Ni_channels:Ni_channels + N_channels]
 
-        index = save_clue(x_data, y_data, TR, version, step, input_shape, 10, 10, index)
-        
-        print(" ** Shuffling data...")
-        y_vec = np.array([i for i in range(int(len(y_data)))])
-        np.random.shuffle(y_vec)
-        y_data = y_data[y_vec]
-        x_data = x_data[y_vec]
+        x_data = (x_data - np.nanmin(x_data))/np.ptp(x_data)
+        y_data, x_data = TestSamplesBalancer(y_data, x_data, vallim, TR, split)
+        save_clue(x_data, y_data, TR, version, input_shape, 5, 5)
 
         for y in range(int(len(y_data))):
             image = x_data[y,:,:,:]
+            print(image.shape)
+            #last addicione
+            #image = toimage(image)
+            image = np.array(image)
+            print(image.shape)
+            #image = tf.image.convert_image_dtype(image, tf.float32)
+            image = (image - np.nanmin(image))/np.ptp(image)
             label = str(y_data[y])
             if label not in self.data:
                 self.data[label] = []
@@ -54,55 +53,46 @@ class Dataset:
             self.labels = list(self.data.keys())
         ###
 
-        print(" ** %s DATASET PREPARED!" % split)
+        print(" ** I HAVE A DATA VECTOR! ")
+        print(" ** I HAVE A SHAPE VECTOR! ")
         ############################################3
 
     def get_mini_dataset(
-        self, batch_size, repetitions, shots, num_classes, num_channels, split="test"):
-        print(" ** Now we're using get_mini_dataset...")
-        print(split)
+        self, batch_size, repetitions, shots, num_classes, num_channels, split=False):
+        #print(" ** Now we're using get_mini_dataset...")
+        #print(split)
         temp_labels = np.zeros(shape=(num_classes * shots))
         temp_images = np.zeros(shape=(num_classes * shots, 101, 101, num_channels))#, num_channels))
-        if split == "training":
+        if split:
             test_labels = np.zeros(shape=(num_classes))
             test_images = np.zeros(shape=(num_classes, 101, 101, num_channels))
-            print(" test_images: ", test_images.shape)
-            print(" test_labels: ", test_labels.shape)
-
-        print(" temp_images: ", temp_images.shape)
-        print(" temp_labels: ", temp_labels.shape)
+        #print(temp_images.shape)
 
         # Get a random subset of labels from the entire label set.
         label_subset = random.choices(self.labels, k=num_classes)
-        print(" label_subset: %s" % label_subset)
+        #print(label_subset)
         for class_idx, class_obj in enumerate(label_subset):
-            print("class_idx: %s, class_obj: %s" % (class_idx, class_obj))
             # Use enumerated index value as a temporary label for mini-batch in
             # few shot learning.
             temp_labels[class_idx * shots : (class_idx + 1) * shots] = class_idx
-            print(" temp_labels: %s" % temp_labels)
+            #print(temp_labels)
             # If creating a split dataset for testing, select an extra sample from each
             # label to create the test dataset.
-            if split == "training":
+            if split:
                 test_labels[class_idx] = class_idx
-                print(" test_labels: %s" % test_labels)
                 images_to_split = random.choices(
                     self.data[label_subset[class_idx]], k=shots + 1
                 )
-                print(" images_to_split: ", len(images_to_split))
                 test_images[class_idx] = images_to_split[-1]
                 temp_images[
                     class_idx * shots : (class_idx + 1) * shots
                 ] = images_to_split[:-1]
-                print(" temp_images: ", temp_images.shape)
             else:
-                if split == "test" or split =="blind":
-                    # For each index in the randomly selected label_subset, sample the
-                    # necessary number of images.
-                    temp_images[
+                # For each index in the randomly selected label_subset, sample the
+                # necessary number of images.
+                temp_images[
                     class_idx * shots : (class_idx + 1) * shots
-                    ] = random.choices(self.data[label_subset[class_idx]], k=shots)
-                    print(" temp_images: ", temp_images.shape)
+                ] = random.choices(self.data[label_subset[class_idx]], k=shots)
             #print(temp_images)
 
         dataset = tf.data.Dataset.from_tensor_slices(
@@ -110,6 +100,6 @@ class Dataset:
         )
         dataset = dataset.shuffle(100).batch(batch_size).repeat(repetitions)
         #print(dataset)
-        if split == "training":
+        if split:
             return dataset, test_images, test_labels
         return dataset
