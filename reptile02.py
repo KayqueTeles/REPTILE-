@@ -19,32 +19,32 @@ os.chdir('/home/kayque/LENSLOAD/')
 ##################################################
 #PARAMETERS SECTION
 ###################################################
-learning_rate = 0.01 ###########ORIGINALLY 0.003 - CHANGED ON VERSION 4
+learning_rate = 0.001 ###########ORIGINALLY 0.003 - CHANGED ON VERSION 4
 meta_step_size = 0.25
 
-inner_batch_size = 25
-eval_batch_size = 25
+inner_batch_size = 100    ####ORIGINALLY 25
+eval_batch_size = 100    ###ORIGINALLY 25
 
-meta_iters = 2000        #ORIGINALLY 2000
-eval_iters = 5
-inner_iters = 4
+meta_iters = 5000        #ORIGINALLY 2000
+eval_iters = 20          ###ORIGINALLY 5
+inner_iters = 19            ##ORIGINALLY 4
 dataset_size = 20000
 TR = int(dataset_size*0.8)
 vallim = int(dataset_size*0.1)
-version = 18 ##VERSION 10: IMAGES STACKED INTO A SINGLE ONE  
+version = 21 ##VERSION 10: IMAGES STACKED INTO A SINGLE ONE  
 index = 0
 normalize = 'yes'
 
 eval_interval = 1
-train_shots = 20
-shots = 8
+train_shots = 80        ##ORIGINALLY 20
+shots = 20             ###ORIGINALLY 5
 num_classes = 2   #ORIGINALLY 5 FOR OMNIGLOT DATASET
 input_shape = 101  #originally 28 for omniglot
 rows = 2
 cols = 10
 num_channels = 3
 
-print("\n\n\n ******** INITIALYZING CODE - REPTILE ********* \n ** Chosen parameters: \n -- learning rate: %s; \n -- meta_step_size: %s; \n -- inner_batch_size: %s; \n -- eval_batch_size: %s; \n -- meta_iters: %s; \n eval_iters: %s; \n -- inner_iters: %s; \n -- eval_interval: %s; \n -- train_shots: %s; \n -- shots: %s, \n -- classes: %s; \n -- input_shape: %s; \n -- rows: %s; \n -- cols: %s; \n -- num_channels: %s; \n -- VERSION: %s." % (learning_rate, meta_step_size, inner_batch_size, eval_batch_size, meta_iters, eval_iters, inner_iters, eval_interval, train_shots, shots, num_classes, input_shape, rows, cols, num_channels, version))
+print("\n\n\n ******** INITIALYZING CODE - REPTILE ********* \n ** Chosen parameters: \n -- learning rate: %s; \n -- meta_step_size: %s; \n -- inner_batch_size: %s; \n -- eval_batch_size: %s; \n -- meta_iters: %s; \n -- eval_iters: %s; \n -- inner_iters: %s; \n -- eval_interval: %s; \n -- train_shots: %s; \n -- shots: %s, \n -- classes: %s; \n -- input_shape: %s; \n -- rows: %s; \n -- cols: %s; \n -- num_channels: %s; \n -- VERSION: %s." % (learning_rate, meta_step_size, inner_batch_size, eval_batch_size, meta_iters, eval_iters, inner_iters, eval_interval, train_shots, shots, num_classes, input_shape, rows, cols, num_channels, version))
 
 ###CLEAN UP PREVIOUS FILES
 fileremover(TR, version, shots, input_shape, meta_iters, normalize)
@@ -100,7 +100,7 @@ for a in range(rows):
         axarr[a, b].xaxis.set_visible(False)
         axarr[a, b].yaxis.set_visible(False)
 plt.show()
-plt.savefig("EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+plt.savefig("EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
 
 print(" ** Network building stage...")
 ##kernel original: 3
@@ -130,6 +130,8 @@ print(" ** Network successfully built.")
 print("\n ** INITIALYZING REPTILE NETWORK.")
 begin = time.perf_counter()
 
+count = 5
+
 try:
     training, testing, losses, train_losses, losses_mse = ([] for i in range(5))
     print("\n ** IT'S TIME TO META_TRAIN!")
@@ -150,9 +152,12 @@ try:
         for images, labels in mini_dataset:
             with tf.GradientTape() as tape:
                 preds = model(images)
-                #preds = model.predict(images)
+                #print("preds: ", preds)
                 #loss = keras.losses.binary_crossentropy(labels, preds) 
                 loss = keras.losses.sparse_categorical_crossentropy(labels, preds) 
+                #print("loss: ", loss)
+            #index = save_clue(images, labels, TR, version, count, input_shape, 5, 5, index)
+            #count = count + 1
             #print(' -- proceeding to gradient steps..')
             grads = tape.gradient(loss, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
@@ -191,10 +196,13 @@ try:
                     with tf.GradientTape() as tape:
                         #preds = model.predict(images)
                         preds = model(images)
+                        print("preds: ", preds)
                         loss = keras.losses.sparse_categorical_crossentropy(labels, preds)
+                        print("loss: ", loss)
                     grads = tape.gradient(loss, model.trainable_weights)
                     optimizer.apply_gradients(zip(grads, model.trainable_weights))
-                    #index = save_clue(images, labels, TR, version, 'training', input_shape, 4, 4, index)
+                    #index = save_clue(images, labels, TR, version, count, input_shape, 5, 5, index)
+                    #count = count + 1
                 test_preds = model.predict(test_images)
                 test_preds = tf.argmax(test_preds).numpy()
                 num_correct = (test_preds == test_labels).sum()
@@ -217,8 +225,8 @@ try:
                 print(
                     " ** batch %d: train=%f test=%f" % (meta_iter, accuracies[0], accuracies[1])
                 )
-            elapsed = (time.perf_counter() - meta_step_timer)/60
-            print(" ** step_time: %s minutes." % elapsed)
+            elapsed = int((time.perf_counter() - meta_step_timer))
+            print(" ** step_time: %s seconds." % elapsed)
 
 
     window_length = 100   #ORIGINALLY 100
@@ -237,7 +245,7 @@ try:
     x = np.arange(0, len(test_y), 1)
     plt.plot(x, test_y, x, train_y)
     plt.legend(["test", "train"])
-    plt.savefig("Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+    plt.savefig("Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
     plt.grid()
 
     #train_set, test_images, test_labels = dataset.get_mini_dataset(
@@ -248,8 +256,9 @@ try:
     plt.figure()
     x = np.arange(0, int(len(losses)), 1)
     plt.plot(x, losses)
+    plt.plot(x, losses_mse)
     plt.legend(["train"])
-    plt.savefig("Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+    plt.savefig("Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
     plt.grid()
 
     # Display the training accuracies.
@@ -257,7 +266,7 @@ try:
     x = np.arange(0, len(losses_mse), 1)
     plt.plot(x, losses_mse)
     plt.legend(["train", "test"])
-    plt.savefig("Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+    plt.savefig("Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
     plt.grid()
 
     for images, labels in train_set:
@@ -280,7 +289,7 @@ try:
     plt.xlabel('false positive rate', fontsize=14)
     plt.ylabel('true positive rate', fontsize=14)
     
-    plt.savefig("ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+    plt.savefig("ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
     test_preds = tf.argmax(test_preds).numpy()
 
     nrows = 1
@@ -302,7 +311,7 @@ try:
         #ax.xaxis.set_visible(False)
         #ax.yaxis.set_visible(False)
     #plt.show()
-    #plt.savefig("FINAL_PREDICTION_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+    #plt.savefig("FINAL_PREDICTION_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
 
 except AssertionError as error:
     print(error)
@@ -314,6 +323,6 @@ except AssertionError as error:
 
 filemover(TR, version, shots, input_shape, meta_iters, normalize)
 
-timee = (time.perf_counter() - begin)/(60*60)
-print('\n ** Mission accomplished in %s hours.' % timee)
+timee = int((time.perf_counter() - begin)/(60))
+print('\n ** Mission accomplished in %s minutes.' % timee)
 print("\n ** FINISHED! ************************")

@@ -223,26 +223,26 @@ def fileremover(TR, version, shots, input_shape, meta_iters, normalize):
 
     piccounter = 0
     print('\n ** Removing specified files and folders...')
-    if os.path.exists('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        os.remove('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+    if os.path.exists('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+        os.remove('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
         piccounter = piccounter + 1
-    if os.path.exists('./Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        os.remove('./Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+    if os.path.exists('./Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+        os.remove('./Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
         piccounter = piccounter + 1
-    if os.path.exists('./Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        os.remove('./Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+    if os.path.exists('./Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+        os.remove('./Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
         piccounter = piccounter + 1
-    if os.path.exists('./train_Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        os.remove('./train_Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+    if os.path.exists('./train_Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+        os.remove('./train_Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
         piccounter = piccounter + 1
     if os.path.exists('./model_REPTILE_version_%s.png' % version):
         os.remove('./model_REPTILE_version_%s.png' % version)
         piccounter = piccounter + 1
-    if os.path.exists('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        os.remove('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+    if os.path.exists('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+        os.remove('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
         piccounter = piccounter + 1
-    if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        os.remove('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize))
+    if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+        os.remove('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
         piccounter = piccounter + 1    
     
     for lo in range(10):
@@ -292,23 +292,23 @@ def filemover(TR, version, shots, input_shape, meta_iters, normalize):
     dest1 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}'. format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
     dest2 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES'. format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
 
-    if os.path.exists('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        shutil.move("./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
+    if os.path.exists('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+        shutil.move("./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize), dest1)
         counter = counter + 1
-    if os.path.exists('./Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        shutil.move("./Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
+    if os.path.exists('./Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+        shutil.move("./Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize), dest1)
         counter = counter + 1
-    if os.path.exists('./Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        shutil.move("./Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
+    if os.path.exists('./Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+        shutil.move("./Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize), dest1)
         counter = counter + 1
-    if os.path.exists('./train_Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        shutil.move("./train_Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
+    if os.path.exists('./train_Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+        shutil.move("./train_Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize), dest1)
         counter = counter + 1
-    if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        shutil.move('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
+    if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+        shutil.move('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize), dest1)
         counter = counter + 1
-    if os.path.exists('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize)):
-        shutil.move('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, normalize), dest1)
+    if os.path.exists('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+        shutil.move('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize), dest1)
         counter = counter + 1
     if os.path.exists('./model_REPTILE_version_%s.png' % version):
         shutil.move('./model_REPTILE_version_%s.png' % version, dest1)
