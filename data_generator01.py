@@ -24,13 +24,9 @@ class Dataset:
             step = 2
         else:
             if split == "test":
-                x_data = x_data[TR:(int(len(y_data))-vallim),:,:,:]
-                y_data = y_data[TR:(int(len(y_data))-vallim)]
+                x_data = x_data[TR:int(len(y_data)),:,:,:]
+                y_data = y_data[TR:int(len(y_data))]
                 step = 3
-            else:
-                x_data = x_data[(int(len(y_data))-vallim):(int(len(y_data))),:,:,:]
-                y_data = y_data[(int(len(y_data))-vallim):(int(len(y_data)))]
-                step = 4
 
         print(" ** split:", split)
 
@@ -96,13 +92,12 @@ class Dataset:
                 ] = images_to_split[:-1]
                 print(" temp_images: ", temp_images.shape)
             else:
-                if split == "test" or split =="blind":
-                    # For each index in the randomly selected label_subset, sample the
-                    # necessary number of images.
-                    temp_images[
-                    class_idx * shots : (class_idx + 1) * shots
-                    ] = random.choices(self.data[label_subset[class_idx]], k=shots)
-                    print(" temp_images: ", temp_images.shape)
+                # For each index in the randomly selected label_subset, sample the
+                # necessary number of images.
+                temp_images[
+                class_idx * shots : (class_idx + 1) * shots
+                ] = random.choices(self.data[label_subset[class_idx]], k=shots)
+                print(" temp_images: ", temp_images.shape)
             #print(temp_images)
 
         dataset = tf.data.Dataset.from_tensor_slices(

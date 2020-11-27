@@ -219,10 +219,13 @@ def save_clue(x_data, y_data, TR, version, step, input_shape, nrows, ncols, inde
     plt.savefig("CLUE_FROM_DATASET_{}_samples_{}_version_{}_step_{}x{}_size_{}_num.png". format(TR, version, step, input_shape, input_shape, index))
     return figcount
 
-def fileremover(TR, version, shots, input_shape, meta_iters, normalize):
+def fileremover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer):
 
     piccounter = 0
-    print('\n ** Removing specified files and folders...')
+    print('\n ** Cleaning up previous files...')
+    if os.path.exists('./Code_data_version_%s.csv' % version):
+        os.remove('./Code_data_version_%s.csv' % version)
+        piccounter = piccounter + 1
     if os.path.exists('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
         os.remove('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
         piccounter = piccounter + 1
@@ -251,13 +254,13 @@ def fileremover(TR, version, shots, input_shape, meta_iters, normalize):
                 os.remove('./CLUE_FROM_DATASET_{}_samples_{}_version_{}_step_{}x{}_size_{}_num.png'. format(TR, version, lo, input_shape, input_shape, b))
                 piccounter = piccounter + 1   
 
-    print(" ** Removing done. %s .png files removed." % (piccounter))
+    print(" ** Removing done. %s files removed." % (piccounter))
 
-    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version)):
-        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling)):
+        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
     
 
-def filemover(TR, version, shots, input_shape, meta_iters, normalize):
+def filemover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer):
 
     print('\n ** Moving created files to a certain folder.')
     counter = 0
@@ -269,29 +272,32 @@ def filemover(TR, version, shots, input_shape, meta_iters, normalize):
         os.mkdir('REPT-GRAPHS')
         print(" ** Done!")
     print(" ** Checking if there's an REP folder...")
-    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version)):
+    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling)):
         print(' ** Yes. There is. Trying to delete and renew...')
-        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
-        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
+        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
         print(' ** Done!')
     else:
         print(" ** None found. Creating one.")
-        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
         print(" ** Done!")
 
-    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version)):
+    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling)):
         print(' ** Yes. There is. Trying to delete and renew...')
-        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
-        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
+        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
         print(' ** Done!')
     else:
         print(" ** None found. Creating one.")
-        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
         print(" ** Done!")
 
-    dest1 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}'. format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
-    dest2 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}/SAMPLES'. format(TR, shots, input_shape, input_shape, meta_iters, normalize, version))
+    dest1 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}'. format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer))
+    dest2 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}/SAMPLES'. format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer))
 
+    if os.path.exists('./Code_data_version_%s.csv' % version):
+        shutil.move('./Code_data_version_%s.csv' % version, dest1)
+        counter = counter + 1
     if os.path.exists('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
         shutil.move("./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize), dest1)
         counter = counter + 1
@@ -325,6 +331,7 @@ def filemover(TR, version, shots, input_shape, meta_iters, normalize):
 def ROCCurveCalculate(y_test, x_test, model):
 
     probs = model.predict(x_test)
+    #probsp = probs
     probsp = probs[:, 1]
     y_new = y_test  #[:, 1]
     thres = 1000
@@ -357,7 +364,7 @@ def ROCCurveCalculate(y_test, x_test, model):
     return [tpr, fpr, auc, auc2, thres]
 
 def data_downloader():
-    print('\n ** Checking files...')
+    print('\n ** Checking dataset files...')
     if os.path.exists('./lensdata/x_data20000fits.h5'):
         print(" ** Files from lensdata.tar.gz were already downloaded.")
     else:

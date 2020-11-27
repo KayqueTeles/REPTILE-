@@ -1,5 +1,5 @@
 import numpy as np, os, random, shutil, sklearn, wget, zipfile, tarfile, matplotlib.pyplot as plt
-import bisect, cv2, tensorflow as tf, pandas as pd, h5py, time
+import bisect, cv2, tensorflow as tf, pandas as pd, h5py, time, csv
 from tensorflow import keras
 from tensorflow.keras import layers
 from pathlib import Path
@@ -12,7 +12,8 @@ from keras import backend as K
 from keras.layers import Input
 from collections import Counter
 from data_generator01 import Dataset
-from rept_utilities import data_downloader, ROCCurveCalculate, toimage, filemover, fileremover, save_image, save_clue, binary_cross_entropy, mean_squared_error
+from rept_utilities import data_downloader, ROCCurveCalculate, toimage, filemover, fileremover
+from rept_utilities import save_image, save_clue, binary_cross_entropy, mean_squared_error
 
 Path('/home/kayque/LENSLOAD/').parent
 os.chdir('/home/kayque/LENSLOAD/')
@@ -22,34 +23,58 @@ os.chdir('/home/kayque/LENSLOAD/')
 learning_rate = 0.001 ###########ORIGINALLY 0.003 - CHANGED ON VERSION 4
 meta_step_size = 0.25
 
-inner_batch_size = 100    ####ORIGINALLY 25
-eval_batch_size = 100    ###ORIGINALLY 25
+inner_batch_size = 100    ####ORIGINALLY 25     -100
+eval_batch_size = 100    ###ORIGINALLY 25   -100
 
-meta_iters = 5000        #ORIGINALLY 2000
-eval_iters = 20          ###ORIGINALLY 5
-inner_iters = 19            ##ORIGINALLY 4
+meta_iters = 4000        #ORIGINALLY 2000    -5000
+eval_iters = 20          ###ORIGINALLY 5     -20
+inner_iters = 20            ##ORIGINALLY 4   -19
 dataset_size = 20000
 TR = int(dataset_size*0.8)
-vallim = int(dataset_size*0.1)
-version = 21 ##VERSION 10: IMAGES STACKED INTO A SINGLE ONE  
+vallim = int(dataset_size*0.2)
+version = 24 
 index = 0
-normalize = 'yes'
 
 eval_interval = 1
-train_shots = 80        ##ORIGINALLY 20
-shots = 20             ###ORIGINALLY 5
+train_shots = 80        ##ORIGINALLY 20   -80
+shots = 20             ###ORIGINALLY 5    -20
 num_classes = 2   #ORIGINALLY 5 FOR OMNIGLOT DATASET
 input_shape = 101  #originally 28 for omniglot
 rows = 2
 cols = 10
 num_channels = 3
+activation_layer = "relu"
+output_layer = "sigmoid"    #original = softmax for REPTILE
+normalize = 'batch_normalization' #or 'none'
+maxpooling = "yes"
+dropout = 0.1
 
-print("\n\n\n ******** INITIALYZING CODE - REPTILE ********* \n ** Chosen parameters: \n -- learning rate: %s; \n -- meta_step_size: %s; \n -- inner_batch_size: %s; \n -- eval_batch_size: %s; \n -- meta_iters: %s; \n -- eval_iters: %s; \n -- inner_iters: %s; \n -- eval_interval: %s; \n -- train_shots: %s; \n -- shots: %s, \n -- classes: %s; \n -- input_shape: %s; \n -- rows: %s; \n -- cols: %s; \n -- num_channels: %s; \n -- VERSION: %s." % (learning_rate, meta_step_size, inner_batch_size, eval_batch_size, meta_iters, eval_iters, inner_iters, eval_interval, train_shots, shots, num_classes, input_shape, rows, cols, num_channels, version))
+print("\n\n\n ******** INITIALYZING CODE - REPTILE ********* \n ** Chosen parameters:")
+
+code_data =[["learning rate", learning_rate],
+            ["meta_step_size", meta_step_size],
+            ["inner_batch_size", inner_batch_size],
+            ["eval_batch_size", eval_batch_size], ["meta_iters", meta_iters],
+            ["eval_iters", eval_iters], ["inner_iters", inner_iters],
+            ["eval_interval", eval_interval], ["train_shots", train_shots],
+            ["shots", shots], ["classes", num_classes],
+            ["input_shape", input_shape],
+            ["dataset_size", dataset_size], ["TR", TR], ["valid", vallim],
+            ["num_channels", num_channels],
+            ["activation_layer", activation_layer],
+            ["output_layer", output_layer],
+            ["normalization", normalize],["maxpooling", maxpooling],
+            ["dropout", dropout], ["VERSION", version]]
+print(code_data)
 
 ###CLEAN UP PREVIOUS FILES
-fileremover(TR, version, shots, input_shape, meta_iters, normalize)
+fileremover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer, maxpooling)
 ###DOWNLOAD DATASET
 data_downloader() 
+###SAVE_CSV WITH CODE DATA.
+with open('Code_data_version_%s.csv' % version, 'w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(code_data)
 
 ###IMPORT DATASET TO CODE
 path = os.getcwd() + "/" + "lensdata/"
@@ -62,20 +87,14 @@ x_data = x_data[:,:,:,0:num_channels]
 index = save_clue(x_data, y_data, TR, version, 1, input_shape, 5, 5, index)
 x_data = (x_data - np.nanmin(x_data))/np.ptp(x_data)
 
+print("\n ** Building dataset functions:")
 print(" ** Train_dataset is bein imported...")
 train_dataset = Dataset(x_data=x_data, y_data=y_data, split="train", version=version, TR=TR, 
-vallim=vallim, index=index, input_shape=input_shape, 
-num_channels=num_channels)
+vallim=vallim, index=index, input_shape=input_shape, num_channels=num_channels)
 print(train_dataset)
 print(" ** Test_dataset is bein imported...")
 test_dataset = Dataset(x_data=x_data, y_data=y_data, split="test", version=version, TR=TR, 
-vallim=vallim, index=index, input_shape=input_shape,
-num_channels=num_channels)
-print(test_dataset)
-print(" ** Blind_dataset is bein imported...")
-blind_dataset = Dataset(x_data=x_data, y_data=y_data, split="blind", version=version, TR=TR, 
-vallim=vallim, index=index, input_shape=input_shape,
-num_channels=num_channels)
+vallim=vallim, index=index, input_shape=input_shape, num_channels=num_channels)
 print(test_dataset)
 
 _, axarr = plt.subplots(nrows=rows, ncols=cols, figsize=(20, 20))
@@ -86,30 +105,25 @@ index = save_clue(x_data, y_data, TR, version, 5, input_shape, 5, 5, index)
 for a in range(rows):
     for b in range(cols):
         temp_image = train_dataset.data[sample_keys[a]][b]
-        #temp_image = np.stack((temp_image[:, :, 0],) * 3, axis=2)
-        #temp_image = np.stack(temp_image, axis=2)
         temp_image = toimage(temp_image)
-        #print(temp_image.shape)
-        #temp_image *= 255
-        #temp_image = np.clip(temp_image, 0, 255).astype("uint32")
-        #print(temp_image.shape)
         if b == 2:
             axarr[a, b].set_title("Class : " + sample_keys[a])
-        #imgs, index = save_image(temp_image, version, index, 3, input_shape)
-        axarr[a, b].imshow(temp_image)#, cmap="gray")
+        axarr[a, b].imshow(temp_image)
         axarr[a, b].xaxis.set_visible(False)
         axarr[a, b].yaxis.set_visible(False)
 plt.show()
 plt.savefig("EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
 
 print(" ** Network building stage...")
-##kernel original: 3
+
 def conv_bn(x):
     x = layers.Conv2D(filters=64, kernel_size=3, strides=2, padding="same")(x)
     x = layers.BatchNormalization()(x)
-    ##########DROPOUT: ADIÇÃO NOSSA! ON VERSION 4
-    #x = layers.Dropout(0.1)(x)
+    x = layers.MaxPooling2D()(x)
+    x = layers.Dropout(dropout)(x)
     return layers.ReLU()(x)
+    #return keras.activations.softmax(x)
+    #return keras.activations.sigmoid(x)
 
 inputs = layers.Input(shape=(input_shape, input_shape, num_channels))
 x = conv_bn(inputs)
@@ -118,12 +132,12 @@ x = conv_bn(x)
 x = conv_bn(x)
 x = layers.Flatten()(x)
 outputs = layers.Dense(num_classes, activation=
-"softmax")(x)
+output_layer)(x)
 model = keras.Model(inputs=inputs, outputs=outputs)
 ##model.compile()  <-- ORIGINAL!
 optimizer = keras.optimizers.SGD(learning_rate=learning_rate)
-model.compile(loss= 'binary_crossentropy', optimizer=optimizer , metrics=[ 'accuracy' ])
-
+model.compile(loss= 'binary_crossentropy', optimizer=optimizer)
+#VERSION 23: model.compile(loss= 'binary_crossentropy', optimizer=optimizer , metrics=[ 'accuracy' ])
 #plot_model(model,  to_file="model_REPTILE_version_%s.png" % version)
 
 print(" ** Network successfully built.")
@@ -178,6 +192,7 @@ try:
         if meta_iter % eval_interval == 0:
             accuracies = []
             for dataset in (train_dataset, test_dataset):
+                hg_loss, mn_loss, lw_loss = ([] for i in range(3))
                 # Sample a mini dataset from the full dataset.
                 train_set, test_images, test_labels = dataset.get_mini_dataset(
                     eval_batch_size, eval_iters, shots, num_classes, num_channels, split="training"
@@ -194,11 +209,13 @@ try:
                     print(" -- labels.shape from trainset cycle %s: %s" % (cycle, labels.shape))
                     cycle = cycle + 1
                     with tf.GradientTape() as tape:
-                        #preds = model.predict(images)
                         preds = model(images)
                         print("preds: ", preds)
                         loss = keras.losses.sparse_categorical_crossentropy(labels, preds)
                         print("loss: ", loss)
+                    hg_loss.append(np.percentile(loss, 15.87))
+                    mn_loss.append(np.percentile(loss, 50.0))
+                    lw_loss.append(np.percentile(loss, 84.13))
                     grads = tape.gradient(loss, model.trainable_weights)
                     optimizer.apply_gradients(zip(grads, model.trainable_weights))
                     #index = save_clue(images, labels, TR, version, count, input_shape, 5, 5, index)
@@ -210,12 +227,13 @@ try:
                 model.set_weights(old_vars)
                 accuracies.append(num_correct / num_classes)
                 print(" ** Loss.")
-                mean_losses = binary_cross_entropy(test_labels, test_preds)
-                print(mean_losses)
-                losses.append(mean_losses)
-                mean_loss_mse = mean_squared_error(test_labels, test_preds)
-                print(mean_loss_mse)
-                losses_mse.append(mean_loss_mse)
+                #mean_losses = binary_cross_entropy(test_labels, test_preds)
+                #print(mean_losses)
+                losses.append(np.percentile(mn_loss, 50.0))
+                #losses.append(mean_losses)
+                #mean_loss_mse = mean_squared_error(test_labels, test_preds)
+                #print(mean_loss_mse)
+                #losses_mse.append(mean_loss_mse)
                 #train_preds = model.predict()
                 #mean_train_losses = binary_cross_entropy(labels, train_preds)
                 #train_losses.append(mean_train_losses)
@@ -255,18 +273,9 @@ try:
     # Display the training accuracies.
     plt.figure()
     x = np.arange(0, int(len(losses)), 1)
-    plt.plot(x, losses)
-    plt.plot(x, losses_mse)
-    plt.legend(["train"])
+    plt.plot(x, losses)#, x, losses_mse)
+    #plt.legend(["binary_cross", "MSE"])
     plt.savefig("Losses_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
-    plt.grid()
-
-    # Display the training accuracies.
-    plt.figure()
-    x = np.arange(0, len(losses_mse), 1)
-    plt.plot(x, losses_mse)
-    plt.legend(["train", "test"])
-    plt.savefig("Losses_MSE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
     plt.grid()
 
     for images, labels in train_set:
@@ -318,10 +327,10 @@ except AssertionError as error:
 #except:
     #print("\n\n\n ************ WARNING *********** \n\n ** Something went wrong during execution.\
      #        Please check it out later. ** Proceeding to move generated files...")
-    #filemover(TR, version, shots, input_shape, meta_iters, normalize)
+    #filemover(TR, version, shots, input_shape, meta_iters, normalize, output_layer)
     pass
 
-filemover(TR, version, shots, input_shape, meta_iters, normalize)
+filemover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer, maxpooling)
 
 timee = int((time.perf_counter() - begin)/(60))
 print('\n ** Mission accomplished in %s minutes.' % timee)
