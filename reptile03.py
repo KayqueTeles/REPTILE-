@@ -11,43 +11,43 @@ from sklearn.metrics import roc_auc_score, log_loss
 from keras import backend as K
 from keras.layers import Input
 from collections import Counter
-from data_generator01 import Dataset
-from rept_utilities import data_downloader, ROCCurveCalculate, toimage, filemover, fileremover
+from data_generator03 import Dataset
+from rept_utilities import data_downloader, ROCCurveCalculate, toimage, filemover, fileremover, FScoreCalc
 from rept_utilities import save_image, save_clue, conv_window
-from rept_utilities import examples_graph, roc_curve_graph, acc_graph, loss_graph, FScoreCalc
+from rept_utilities import examples_graph, roc_curve_graph, acc_graph, loss_graph, roc_curve_graph_series
 
 Path('/home/kayque/LENSLOAD/').parent
 os.chdir('/home/kayque/LENSLOAD/')
 ##################################################
 #PARAMETERS SECTION
 ###################################################
-learning_rate = 0.005 ###########ORIGINALLY 0.003 - CHANGED ON VERSION 4
+learning_rate = 0.001 ###########ORIGINALLY 0.003 - CHANGED ON VERSION 4
 meta_step_size = 0.25
 
 inner_batch_size = 25    ####ORIGINALLY 25     -100
 eval_batch_size = 25    ###ORIGINALLY 25   -100
 
-meta_iters = 2000        #ORIGINALLY 2000    -5000
+meta_iters = 5000        #ORIGINALLY 2000    -5000
 eval_iters = 5          ###ORIGINALLY 5     -20
 inner_iters = 4            ##ORIGINALLY 4   -19
 dataset_size = 20000
 TR = int(dataset_size*0.8)
 vallim = int(dataset_size*0.2)
-version = 27
+version = 25 
 index = 0
 
 eval_interval = 1
 train_shots = 20        ##ORIGINALLY 20   -80
 shots = 5             ###ORIGINALLY 5    -20
-num_classes = 2   #ORIGINALLY 5 FOR OMNIGLOT DATASET
-input_shape = 101  #originally 28 for omniglot
+num_classes = 10   #ORIGINALLY 5 FOR OMNIGLOT DATASET
+input_shape = 28  #originally 28 for omniglot
 rows = 2
 cols = 10
-num_channels = 3
+num_channels = 1
 activation_layer = "relu"
 output_layer = "sigmoid"    #original = softmax for REPTILE
-normalize = 'none' #or 'none'
-maxpooling = "yes"
+normalize = 'batch_normalization' #or 'none'
+maxpooling = "no"
 dropout = 0.1
 
 print("\n\n\n ******** INITIALYZING CODE - REPTILE ********* \n ** Chosen parameters:")
@@ -77,36 +77,33 @@ with open('Code_data_version_%s.csv' % version, 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(code_data)
 
-###IMPORT DATASET TO CODE
-path = os.getcwd() + "/" + "lensdata/"
-labels = pd.read_csv(path + 'y_data20000fits.csv',delimiter=',', header=None)
-y_data = np.array(labels, np.uint8)
-x_datasaved = h5py.File(path + 'x_data20000fits.h5', 'r')
-x_data = x_datasaved['data']
-x_data = x_data[:,:,:,0:num_channels]
+###IMPORT LENSING DATASET TO CODE
+#path = os.getcwd() + "/" + "lensdata/"
+#labels = pd.read_csv(path + 'y_data20000fits.csv',delimiter=',', header=None)
+#y_data = np.array(labels, np.uint8)
+#x_datasaved = h5py.File(path + 'x_data20000fits.h5', 'r')
+#x_data = x_datasaved['data']
 
-index = save_clue(x_data, y_data, TR, version, 1, input_shape, 5, 5, index)
-x_data = (x_data - np.nanmin(x_data))/np.ptp(x_data)
+#index = save_clue(x_data, y_data, TR, version, 1, input_shape, 5, 5, index)
+#x_data = (x_data - np.nanmin(x_data))/np.ptp(x_data)
 
 print("\n ** Building dataset functions:")
 print(" ** Train_dataset is bein imported...")
-train_dataset = Dataset(x_data=x_data, y_data=y_data, split="train", version=version, TR=TR, 
+train_dataset = Dataset(split="train", version=version, TR=TR, 
 vallim=vallim, index=index, input_shape=input_shape, num_channels=num_channels)
 print(train_dataset)
 print(" ** Test_dataset is bein imported...")
-test_dataset = Dataset(x_data=x_data, y_data=y_data, split="test", version=version, TR=TR, 
+test_dataset = Dataset(split="test", version=version, TR=TR, 
 vallim=vallim, index=index, input_shape=input_shape, num_channels=num_channels)
 print(test_dataset)
 
-examples_graph(rows, cols, train_dataset, index, TR, shots, input_shape, meta_iters, version, normalize)
 
 print(" ** Network building stage...")
 
-#ORIGINAL: KERNEL_SIZE = 3, STRIDES = 2, PADDING = "SAME", FILTERS = 64
 def conv_bn(x):
-    x = layers.Conv2D(filters=64, kernel_size=5, padding="same")(x)
-    #x = layers.BatchNormalization()(x)
-    x = layers.MaxPooling2D(pool_size=(2, 2))(x)
+    x = layers.Conv2D(filters=64, kernel_size=3, strides=2, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+    # = layers.MaxPooling2D()(x)
     x = layers.Dropout(dropout)(x)
     return layers.ReLU()(x)
     #return keras.activations.softmax(x)
@@ -151,10 +148,15 @@ try:
         print(" -- Clue of mini_dataset: ", mini_dataset)  ##REPEAT_DATASET HAS NO ATTRIBUTE "SHAPE"
         cycle = 1
         for images, labels in mini_dataset:
-            index = save_clue(images, labels, TR, version, 6, input_shape, 3, 3, index)
             with tf.GradientTape() as tape:
                 preds = model(images)
+                #print("preds: ", preds)
+                #loss = keras.losses.binary_crossentropy(labels, preds) 
                 loss = keras.losses.sparse_categorical_crossentropy(labels, preds) 
+                #print("loss: ", loss)
+            #index = save_clue(images, labels, TR, version, count, input_shape, 5, 5, index)
+            #count = count + 1
+            #print(' -- proceeding to gradient steps..')
             grads = tape.gradient(loss, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
             print(" -- images.shape from trainset cycle %s: %s" % (cycle, images.shape))
@@ -190,7 +192,6 @@ try:
                     print(" -- images.shape from trainset cycle %s: %s" % (cycle, images.shape))
                     print(" -- labels.shape from trainset cycle %s: %s" % (cycle, labels.shape))
                     cycle = cycle + 1
-                    index = save_clue(images, labels, TR, version, 7, input_shape, 3, 3, index)
                     with tf.GradientTape() as tape:
                         preds = model(images)
                         #print("preds: ", preds)
@@ -199,9 +200,9 @@ try:
                     grads = tape.gradient(loss, model.trainable_weights)
                     optimizer.apply_gradients(zip(grads, model.trainable_weights))
                 test_preds = model.predict(test_images)
+                mean_loss.append(log_loss(test_labels, test_preds))
                 test_preds = tf.argmax(test_preds).numpy()
                 num_correct = (test_preds == test_labels).sum()
-                mean_loss.append(log_loss(test_labels, test_preds))
                 # Reset the weights after getting the evaluation accuracies.
                 model.set_weights(old_vars)
                 accuracies.append(num_correct / num_classes)
@@ -225,13 +226,83 @@ try:
     loss_graph(tra_loss, tes_loss, TR, shots, input_shape, meta_iters, version, normalize)
 
     test_preds = model.predict(test_images)
-    tpr, fpr, auc, auc2, thres = ROCCurveCalculate(test_labels, test_images, model)
-    roc_curve_graph(fpr, tpr, auc, TR, shots, input_shape, meta_iters, version, normalize)
+    lauc, AUCall, FPRall, TPRall, f1s, f001s = ([] for i in range(6))
+    for j in range(num_classes):
+        test_l = (test_labels == j)
+        print(test_l)
+        tpr, fpr, auc, auc2, thres = ROCCurveCalculate(test_l, test_images, model)
+        lauc = np.append(lauc, auc)
+        AUCall.append(auc2)
+        FPRall.append(fpr)
+        TPRall.append(tpr)
+        roc_curve_graph_series(fpr, tpr, auc, TR, shots, input_shape, meta_iters, version, normalize, j)
 
-    #f1_score, f001_score = FScoreCalc(test_labels, test_images, model)
+        #f1_score, f001_score = FScoreCalc(test_l, test_images, model)
+        #f1s.append(f1_score)
+        #f001s.append(f001_score)
 
-    #writer.writerows([["f1", f1_score],
-    #                 ["f001", f001_score]])
+    #writer.writerows([["med_f1", np.percentile(f1s, 50.0)],
+    #                 ["low_f1", np.percentile(f1s, 15.87)],
+    #                 ["hig_f1", np.percentile(f1s, 84.13)],
+    #                 ["med_f001", np.percentile(f001s, 50.0)],
+     #                ["low_f001", np.percentile(f001s, 15.87)],
+     #                ["hig_f001", np.percentile(f001s, 84.13)]])
+
+    print('\n ** Generating ultimate ROC graph...')
+    medians_y, medians_x, lowlim, highlim = ([] for i in range(4))
+
+    plt.figure()
+    plt.plot([0, 1], [0, 1], 'k--') # k = color black
+
+    mauc = np.percentile(lauc, 50.0)
+    mAUCall = np.percentile(AUCall, 50.0)
+    plt.title('Median ROC over %s characters' % (num_classes))
+    plt.xlabel('false positive rate', fontsize=14)
+    plt.ylabel('true positive rate', fontsize=14)
+
+    for num in range(0,int(thres),1):
+        lis = [item[num] for item in TPRall]
+        los = [item[num] for item in FPRall]
+            
+        medians_x.append(np.percentile(los, 50.0))
+        medians_y.append(np.percentile(lis, 50.0))
+        lowlim.append(np.percentile(lis, 15.87))
+        highlim.append(np.percentile(lis, 84.13))
+        
+    lowauc = metrics.auc(medians_x, lowlim)
+    highauc = metrics.auc(medians_x, highlim)
+
+    print(lowauc, mAUCall, highauc)
+
+    plt.plot(medians_x, medians_y, 'b', label = 'AUC: %s' % mauc, linewidth=3)  
+    plt.fill_between(medians_x, medians_y, lowlim, color='blue', alpha=0.3, interpolate=True)
+    plt.fill_between(medians_x, highlim, medians_y, color='blue', alpha=0.3, interpolate=True)
+    plt.legend(loc='lower right', ncol=1, mode="expand")
+
+    plt.savefig("ROCLensDetectNet_Full_%s.png" % TR)
+
+    test_preds = tf.argmax(test_preds).numpy()
+
+    nrows = 1
+    ncols = 5
+    _, axarr = plt.subplots(nrows=nrows, ncols=ncols, figsize=(20, 20))
+
+    sample_keys = list(train_dataset.data.keys())
+
+    #for i, ax in zip(range(nrows*ncols), axarr):
+        #temp_image = test_images[i]
+        #temp_image = toimage(temp_image)
+        #temp_image = np.stack((test_images[i, :, :, 0],) * 3, axis=2)
+        #temp_image *= 255
+        #temp_image = np.clip(temp_image, 0, 255).astype("uint8")
+        #ax.set_title(
+        #    "Label : {}, Prediction : #{}".format(int(test_labels[i]), test_preds[i])
+        #)
+        #ax.imshow(temp_image)
+        #ax.xaxis.set_visible(False)
+        #ax.yaxis.set_visible(False)
+    #plt.show()
+    #plt.savefig("FINAL_PREDICTION_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
 
 except AssertionError as error:
     print(error)

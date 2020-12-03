@@ -1,5 +1,5 @@
 """ Utility functions. """
-import numpy as np, os, random, shutil, sklearn, keras, wget, zipfile, tarfile, matplotlib.pyplot as plt, bisect, cv2
+import numpy as np, os, random, shutil, sklearn, keras, wget, zipfile, tarfile, matplotlib.pyplot as plt, bisect, cv2, pandas as pd
 
 from PIL import Image
 from sklearn.model_selection import StratifiedKFold
@@ -207,6 +207,7 @@ def save_clue(x_data, y_data, TR, version, step, input_shape, nrows, ncols, inde
     figcount = 0
     plt.figure()
     fig, axs = plt.subplots(nrows, ncols, figsize=(20,20))
+    print(" ** x_data:  ", x_data.shape)
     for i in range(nrows):
         for j in range(ncols):
             temp_image = toimage(np.array(x_data[figcount, :, :, :]))
@@ -247,18 +248,12 @@ def fileremover(TR, version, shots, input_shape, meta_iters, normalize, activati
     if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
         os.remove('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
         piccounter = piccounter + 1    
-    if os.path.exists('./ROCLensDetectNet_Full_%s.png' % TR):
-        os.remove('./ROCLensDetectNet_Full_%s.png' % TR)
-        piccounter = piccounter + 1    
     
     for lo in range(10):
         for b in range(TR):   
             if os.path.exists('./CLUE_FROM_DATASET_{}_samples_{}_version_{}_step_{}x{}_size_{}_num.png'. format(TR, version, lo, input_shape, input_shape, b)):
                 os.remove('./CLUE_FROM_DATASET_{}_samples_{}_version_{}_step_{}x{}_size_{}_num.png'. format(TR, version, lo, input_shape, input_shape, b))
                 piccounter = piccounter + 1   
-        if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}_char_{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize, lo)):
-            os.remove('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}_char_{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize, lo))
-            piccounter = piccounter + 1    
 
     print(" ** Removing done. %s files removed." % (piccounter))
 
@@ -319,14 +314,14 @@ def filemover(TR, version, shots, input_shape, meta_iters, normalize, activation
     if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
         shutil.move('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize), dest1)
         counter = counter + 1
-    if os.path.exists('./ROCLensDetectNet_Full_%s.png' % TR):
-        shutil.move('./ROCLensDetectNet_Full_%s.png' % TR, dest1)
-        counter = counter + 1
     if os.path.exists('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
         shutil.move('./EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize), dest1)
         counter = counter + 1
     if os.path.exists('./model_REPTILE_version_%s.png' % version):
         shutil.move('./model_REPTILE_version_%s.png' % version, dest1)
+        counter = counter + 1
+    if os.path.exists('./ROCLensDetectNet_Full_%s.png' % TR):
+        shutil.move('./ROCLensDetectNet_Full_%s.png' % TR, dest1)
         counter = counter + 1
     
     for lo in range(10):
@@ -334,9 +329,9 @@ def filemover(TR, version, shots, input_shape, meta_iters, normalize, activation
             if os.path.exists('./CLUE_FROM_DATASET_{}_samples_{}_version_{}_step_{}x{}_size_{}_num.png'. format(TR, version, lo, input_shape, input_shape, b)):
                 shutil.move('./CLUE_FROM_DATASET_{}_samples_{}_version_{}_step_{}x{}_size_{}_num.png'. format(TR, version, lo, input_shape, input_shape, b), dest2)
                 counter = counter + 1   
-            if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}_char_{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize, lo)):
-                shutil.move('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}_char_{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize, lo), dest1)
-                counter = counter + 1
+        if os.path.exists("./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}_class_{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize, lo)):
+            shutil.move("./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}_class_{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize, lo), dest2)
+            counter = counter + 1
     print(" ** Moving done. %s files moved." % counter)
     print(dest1)
 
@@ -414,6 +409,7 @@ def data_downloader():
 
 def binary_cross_entropy(actual, predicted):
     sum_score = 0.0
+    print(" -- binary_cross step.")
     for i in range(len(actual)):
         print(sum_score)
         summ = actual[i] * np.log(1e-15 + predicted[i])
@@ -425,9 +421,13 @@ def binary_cross_entropy(actual, predicted):
 
 def mean_squared_error(actual, predicted):
     sum_square_error = 0.0
+    print(" -- binary_cross step.")
     for i in range(len(actual)):
+        print(sum_square_error)
         sum_square_error += (actual[i] - predicted[i])**2.0
     mean_square_error = 1.0 / len(actual) * sum_square_error
+    print(predicted[i])
+    print(actual[i])
     return mean_square_error
 
 def categorical_cross_entropy_loss(actual, predicted):
@@ -454,14 +454,12 @@ def FScoreCalc(y_test, x_test, model):
 
 def conv_window(vector):
     window_length = 100   #ORIGINALLY 100
-    vec_s = np.r_[
-        vector[window_length - 1 : 0 : -1], vector, vector[-1:-window_length:-1]
-    ]
+    vec_s = np.r_[vector[window_length - 1 : 0 : -1], vector, vector[-1:-window_length:-1]]
     w = np.hamming(window_length)
     vec_y = np.convolve(w / w.sum(), vec_s, mode="valid")
     return vec_y
 
-def roc_curve_graph(fpr, tpr, auc, TR, shots, input_shape, meta_iters, version, normalize):
+def roc_curve_graph(fpr, tpr, auc, TR, shots, input_shape, meta_iters, version, normalize, n_class):
     plt.figure()
     plt.plot([0, 1], [0, 1], 'k--') # k = color black
     plt.plot(fpr, tpr, label="AUC: %.3f" % auc, linewidth=3) # for color 'C'+str(j), for j[0 9]
@@ -469,17 +467,7 @@ def roc_curve_graph(fpr, tpr, auc, TR, shots, input_shape, meta_iters, version, 
     plt.title('ROC')
     plt.xlabel('false positive rate', fontsize=14)
     plt.ylabel('true positive rate', fontsize=14)
-    plt.savefig("ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
-
-def roc_curve_graph_series(fpr, tpr, auc, TR, shots, input_shape, meta_iters, version, normalize, arg):
-    plt.figure()
-    plt.plot([0, 1], [0, 1], 'k--') # k = color black
-    plt.plot(fpr, tpr, label="AUC: %.3f" % auc, linewidth=3) # for color 'C'+str(j), for j[0 9]
-    plt.legend(loc='lower right', ncol=1, mode="expand")
-    plt.title('ROC for character %s' % arg)
-    plt.xlabel('false positive rate', fontsize=14)
-    plt.ylabel('true positive rate', fontsize=14)
-    plt.savefig("ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}_char_{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize, arg))
+    plt.savefig("ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}_character_{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize, n_class))
 
 def acc_graph(test_y, train_y, TR, shots, input_shape, meta_iters, version, normalize):
     plt.figure()
@@ -514,39 +502,3 @@ def examples_graph(rows, cols, train_dataset, index, TR, shots, input_shape, met
             axarr[a, b].yaxis.set_visible(False)
     plt.show()
     plt.savefig("EXAMPLE_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize))
-
-def miniimagenet_downloader():
-    print('\n ** Checking dataset files...')
-    if os.path.exists('./mini-imagenet-cache-train.pkl'):
-        print(" ** Dataset ready!")
-    else:
-        if os.path.exists('./miniimagenet.zip'):
-            print(" ** Files were already downloaded but not extracted.")
-            print(" ** Extracting...")
-            with zipfile.ZipFile("miniimagenet.zip", 'r') as zip_ref:
-                zip_ref.extractall() 
-            print(" ** Extracted successfully.")
-            if os.path.exists('miniimagenet.zip'):
-                    os.remove('miniimagenet.zip')
-        else:
-            print("n ** None found. Downloading mini-imagenet files.zip...")
-            wget.download('https://data.deepai.org/miniimagenet.zip')
-            print(" ** Download successful. Extracting...")
-            with zipfile.ZipFile("miniimagenet.zip", 'r') as zip_ref:
-                zip_ref.extractall() 
-            print(" ** Extracted successfully.")
-            if os.path.exists('miniimagenet.zip'):
-                    os.remove('miniimagenet.zip')
-
-def get_images(paths, labels, nb_samples=None, shuffle=True):
-    print(' -- get_images being used.')
-    if nb_samples is not None:
-        sampler = lambda x: random.sample(x, nb_samples)
-    else:
-        sampler = lambda x: x
-    images = [(i, os.path.join(path, image)) \
-        for i, path in zip(labels, paths) \
-        for image in sampler(os.listdir(path))]
-    if shuffle:
-        random.shuffle(images)
-    return images
