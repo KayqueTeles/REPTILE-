@@ -1,7 +1,7 @@
 import numpy as np, os, random, shutil, sklearn, wget, zipfile, tarfile, matplotlib.pyplot as plt
 import bisect, cv2, tensorflow as tf, pandas as pd, h5py, time, csv
 from tensorflow import keras
-from keras.applications.resnet50 import ResNet50, VGG16, InceptionV3
+from keras.applications.resnet50 import ResNet50
 from tensorflow.keras import layers
 from pathlib import Path
 from PIL import Image
@@ -25,10 +25,10 @@ os.chdir('/home/kayque/LENSLOAD/')
 learning_rate = 0.01 ###########ORIGINALLY 0.003 - CHANGED ON VERSION 4
 meta_step_size = 0.25
 
-inner_batch_size = 400    ####ORIGINALLY 25     -100
-eval_batch_size = 400    ###ORIGINALLY 25   -100
+inner_batch_size = 25    ####ORIGINALLY 25     -100
+eval_batch_size = 25    ###ORIGINALLY 25   -100
 
-meta_iters = 1000        #ORIGINALLY 2000    -5000
+meta_iters = 2000        #ORIGINALLY 2000    -5000
 eval_iters = 5          ###ORIGINALLY 5     -20
 inner_iters = 4            ##ORIGINALLY 4   -19
 dataset_size = 20000
@@ -38,8 +38,8 @@ version = 29
 index = 0
 
 eval_interval = 1
-train_shots = 200        ##ORIGINALLY 20   -80
-shots = 200             ###ORIGINALLY 5    -20
+train_shots = 20        ##ORIGINALLY 20   -80
+shots = 20             ###ORIGINALLY 5    -20
 num_classes = 2   #ORIGINALLY 5 FOR OMNIGLOT DATASET
 input_shape = 101  #originally 28 for omniglot
 rows = 2
@@ -48,10 +48,9 @@ num_channels = 3
 activation_layer = "relu"
 output_layer = "sigmoid"    #original = softmax for REPTILE
 normalize = 'BatchNormalization' #or 'none'
-maxpooling = "yes"
-dropout = 0.0
-architecture = "ResNet50"
-initialization = 'imagenet'
+maxpooling = "no"
+dropout = 0.2
+architecture = "Basic-MNIST"
 classes = ['lens', 'not-lens']
 
 print("\n\n\n ******** INITIALYZING CODE - REPTILE ********* \n ** Chosen parameters:")
@@ -69,7 +68,6 @@ code_data =[["learning rate", learning_rate],
             ["architecture", architecture],
             ["activation_layer", activation_layer],
             ["output_layer", output_layer],
-            ["initialization", initialization],
             ["normalization", normalize],["maxpooling", maxpooling],
             ["dropout", dropout], ["VERSION", version]]
 print(code_data)
@@ -92,13 +90,7 @@ x_data = x_datasaved['data']
 x_data = x_data[:,:,:,0:num_channels]
 
 index = save_clue(x_data, y_data, TR, version, 1, input_shape, 5, 5, index)
-#x_data = (x_data - np.nanmin(x_data))/np.ptp(x_data)
-
-print(" ** Shuffling data...")
-y_vec = np.array([i for i in range(int(len(y_data)))])
-np.random.shuffle(y_vec)
-y_data = y_data[y_vec]
-x_data = x_data[y_vec]
+x_data = (x_data - np.nanmin(x_data))/np.ptp(x_data)
 
 x_test = x_data[(TR+vallim):int(len(y_data)),:,:,:]
 y_test = y_data[(TR+vallim):int(len(y_data))]
@@ -120,29 +112,26 @@ examples_graph(rows, cols, train_dataset, index, TR, shots, input_shape, meta_it
 print(" ** Network building stage...")
 
 #ORIGINAL: KERNEL_SIZE = 3, STRIDES = 2, PADDING = "SAME", FILTERS = 64
-#def conv_bn(x):
-#    x = layers.Conv2D(filters=64, kernel_size=5, padding="same")(x)
-    #x = layers.BatchNormalization()(x)
-#    x = layers.MaxPooling2D(pool_size=(2, 2))(x)
-#    x = layers.Dropout(dropout)(x)
-#    return layers.ReLU()(x)
+def conv_bn(x):
+    x = layers.Conv2D(filters=64, kernel_size=5, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+    #x = layers.MaxPooling2D(pool_size=(2, 2))(x)
+    x = layers.Dropout(dropout)(x)
+    return layers.ReLU()(x)
     #return keras.activations.softmax(x)
     #return keras.activations.sigmoid(x)
 
-#inputs = layers.Input(shape=(input_shape, input_shape, num_channels))
-#x = conv_bn(inputs)
-#x = conv_bn(x)
-#x = conv_bn(x)
-#x = conv_bn(x)
-#x = layers.Flatten()(x)
-#outputs = layers.Dense(num_classes, activation=output_layer)(x)
-#model = keras.Model(inputs=inputs, outputs=outputs)
+inputs = layers.Input(shape=(input_shape, input_shape, num_channels))
+x = conv_bn(inputs)
+x = conv_bn(x)
+x = conv_bn(x)
+x = conv_bn(x)
+x = layers.Flatten()(x)
+outputs = layers.Dense(num_classes, activation=
+output_layer)(x)
+model = keras.Model(inputs=inputs, outputs=outputs)
 ##model.compile()  <-- ORIGINAL!
-img_shape = (x_data.shape[1], x_data.shape[2], x_data.shape[3])
-img_input = Input(shape=img_shape)
-model = ResNet50(include_top=True, weights='imagenet', input_tensor=img_input, input_shape=img_shape, classes=2, pooling=None)
 optimizer = keras.optimizers.SGD(learning_rate=learning_rate)
-model.summary()
 model.compile(loss= 'categorical_crossentropy', optimizer=optimizer, run_eagerly=True)
 plot_model(model,  to_file="model_REPTILE_version_%s.png" % version)
 
@@ -249,9 +238,10 @@ try:
     tpr, fpr, auc, auc2, thres = ROCCurveCalculate(y_test, x_test, model)
     roc_curve_graph(fpr, tpr, auc, TR, shots, input_shape, meta_iters, version, normalize)
 
-    f1_score, f001_score = FScoreCalc(y_test, x_test, model)
-    writer.writerows([["f1", f1_score],
-                     ["f001", f001_score]])
+    #f1_score, f001_score = FScoreCalc(test_labels, test_images, model)
+
+    #writer.writerows([["f1", f1_score],
+    #                 ["f001", f001_score]])
 
 except AssertionError as error:
     print(error)

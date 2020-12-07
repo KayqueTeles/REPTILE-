@@ -10,23 +10,25 @@ from sklearn import metrics
 from sklearn.metrics import roc_auc_score
 from keras import backend as K
 from keras.layers import Input
-from tensorflow.keras.utils import to_categorical
 from collections import Counter
-from rept_utilities import toimage, save_image, save_clue
+from rept_utilities03 import toimage, save_image, save_clue
+
+import mnist
 
 class Dataset:
-    def __init__(self, x_data, y_data, split, version, TR, vallim, index, input_shape, num_channels):
+    def __init__(self, split, version, TR, vallim, index, input_shape, num_channels):
         #split = "train" if training else "test"
         self.data = {}
         
         if split == "train":
-            x_data = x_data[0:TR,:,:,:]
-            y_data = y_data[0:TR]
+            x_data = mnist.train_images()
+            y_data = mnist.train_labels()
+            num_classes = len(np.unique(y_data))
             step = 2
         else:
             if split == "test":
-                x_data = x_data[TR:(TR+vallim),:,:,:]
-                y_data = y_data[TR:(TR+vallim)]
+                x_data = mnist.test_images()
+                y_data = mnist.test_labels()
                 step = 3
 
         print(" ** split:", split)
@@ -34,15 +36,17 @@ class Dataset:
         print(" ** x_data:  ", x_data.shape)
         print(" ** y_data:  ", y_data.shape)
 
-        index = save_clue(x_data, y_data, TR, version, step, input_shape, 10, 10, index)
-        #y_data = to_categorical(y_data,num_classes=2)
+        x_data = (x_data - np.nanmin(x_data))/np.ptp(x_data)
+        x_data = np.expand_dims(x_data, axis=3)
+        print(" ** x_data:  ", x_data.shape)
+        #index = save_clue(x_data, y_data, TR, version, step, input_shape, 10, 10, index)
         
         print(" ** Shuffling data...")
         y_vec = np.array([i for i in range(int(len(y_data)))])
         np.random.shuffle(y_vec)
         y_data = y_data[y_vec]
         x_data = x_data[y_vec]
-        #####PUT TEMP_IMAGE IN X_DATA.SHAPES
+
         for y in range(int(len(y_data))):
             image = x_data[y,:,:,:]
             label = str(y_data[y])
@@ -60,10 +64,10 @@ class Dataset:
         print(" ** Now we're using get_mini_dataset...")
         print(split)
         temp_labels = np.zeros(shape=(num_classes * shots))
-        temp_images = np.zeros(shape=(num_classes * shots, 101, 101, num_channels))#, num_channels))
+        temp_images = np.zeros(shape=(num_classes * shots, 28, 28, num_channels))#, num_channels))
         if split == "training":
             test_labels = np.zeros(shape=(num_classes))
-            test_images = np.zeros(shape=(num_classes, 101, 101, num_channels))
+            test_images = np.zeros(shape=(num_classes, 28, 28, num_channels))
             print(" test_images: ", test_images.shape)
             print(" test_labels: ", test_labels.shape)
 
