@@ -12,38 +12,24 @@ from keras import backend as K
 from keras.layers import Input
 from tensorflow.keras.utils import to_categorical
 from collections import Counter
-from rept_utilities import toimage, save_image, save_clue, resize_image
+from rept_utilities import toimage, save_image, save_clue, extraction
 
 class Dataset:
     def __init__(self, x_data, y_data, split, version, TR, vallim, index, input_shape, num_channels):
         #split = "train" if training else "test"
         self.data = {}
-        
-        if split == "train":
-            x_data = x_data[0:TR,:,:,:]
-            y_data = y_data[0:TR]
-            step = 2
-        else:
-            if split == "test":
-                x_data = x_data[TR:(TR+vallim),:,:,:]
-                y_data = y_data[TR:(TR+vallim)]
-                step = 3
 
         print(" ** split:", split)
 
         print(" ** x_data:  ", x_data.shape)
         print(" ** y_data:  ", y_data.shape)
 
-        index = save_clue(x_data, y_data, TR, version, step, input_shape, 10, 10, index)
+        index = save_clue(x_data, y_data, TR, version, split, input_shape, 10, 10, index)
         #y_data = to_categorical(y_data,num_classes=2)
-    
+        
         #####PUT TEMP_IMAGE IN X_DATA.SHAPES
         for y in range(int(len(y_data))):
             image = x_data[y,:,:,:]
-            rgb = toimage(image)
-            rgb = np.array(rgb)
-            img = Image.fromarray(rgb)
-            img = img.resize((input_shape, input_shape))
             label = str(y_data[y])
             if label not in self.data:
                 self.data[label] = []
@@ -55,14 +41,14 @@ class Dataset:
         ############################################3
 
     def get_mini_dataset(
-        self, batch_size, repetitions, shots, num_classes, input_shape, num_channels, split="test"):
+        self, batch_size, repetitions, shots, num_classes, num_channels, split="test"):
         print(" ** Now we're using get_mini_dataset...")
         print(split)
         temp_labels = np.zeros(shape=(num_classes * shots))
-        temp_images = np.zeros(shape=(num_classes * shots, input_shape, input_shape, num_channels))#, num_channels))
+        temp_images = np.zeros(shape=(num_classes * shots, 101, 101, num_channels))#, num_channels))
         if split == "training":
             test_labels = np.zeros(shape=(num_classes))
-            test_images = np.zeros(shape=(num_classes, input_shape, input_shape, num_channels))
+            test_images = np.zeros(shape=(num_classes, 101, 101, num_channels))
             print(" test_images: ", test_images.shape)
             print(" test_labels: ", test_labels.shape)
 

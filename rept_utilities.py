@@ -1,5 +1,5 @@
 """ Utility functions. """
-import numpy as np, os, random, shutil, sklearn, keras, wget, zipfile, tarfile, matplotlib.pyplot as plt, bisect, cv2
+import numpy as np, os, random, shutil, sklearn, keras, wget, zipfile, tarfile, matplotlib.pyplot as plt, bisect, cv2, tensorflow as tf, sys
 
 from PIL import Image
 from sklearn.model_selection import StratifiedKFold
@@ -8,6 +8,13 @@ from sklearn.metrics import roc_auc_score
 from keras import backend as K
 from keras.layers import Input
 from collections import Counter
+from keras import models
+from keras.models import Sequential
+from keras import layers
+from keras.layers import Convolution2D
+from keras.layers import MaxPooling2D
+from keras.layers import Dense, Dropout, Flatten, Activation
+from keras.layers.normalization import BatchNormalization
 
 ####################################################3#############
 ##############SOME NECESSARY FUNCTIONS############################
@@ -219,7 +226,7 @@ def save_clue(x_data, y_data, TR, version, step, input_shape, nrows, ncols, inde
     plt.savefig("CLUE_FROM_DATASET_{}_samples_{}_version_{}_step_{}x{}_size_{}_num.png". format(TR, version, step, input_shape, input_shape, index))
     return figcount
 
-def fileremover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer, maxpooling):
+def fileremover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer, maxpooling, architecture, learning_rate):
 
     piccounter = 0
     print('\n ** Cleaning up previous files...')
@@ -253,6 +260,9 @@ def fileremover(TR, version, shots, input_shape, meta_iters, normalize, activati
     if os.path.exists('./ROCLensDetectNet_Full_%s.png' % TR):
         os.remove('./ROCLensDetectNet_Full_%s.png' % TR)
         piccounter = piccounter + 1    
+    if os.path.exists('./Code_data_version_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}.csv'. format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture)):
+        os.remove('./Code_data_version_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}.csv'. format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture))
+        piccounter = piccounter + 1
     
     for lo in range(10):
         for by in range(TR*10):   
@@ -261,15 +271,25 @@ def fileremover(TR, version, shots, input_shape, meta_iters, normalize, activati
                 piccounter = piccounter + 1  
             if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}_stage_{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize, by)):
                 os.remove('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}_stage_{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize, by))
-                piccounter = piccounter + 1    
+                piccounter = piccounter + 1   
+            if os.path.exists('./Color_Hist_IMG {}_index_{}_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(lo, by, TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+                os.remove('./Color_Hist_IMG_{}_index_{}_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(lo, by, TR, shots, input_shape, input_shape, meta_iters, version, normalize))
+                piccounter = piccounter + 1  
+    phase = ("train", "test")
+    step = ("Before Norm", "Normalized", "Resized", "Resized & Normalized")
+    for i in phase:
+        for j in step:
+            if os.path.exists("Color_Hist_IMG_{}_step_{}_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(i, j, TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+                os.remove("Color_Hist_IMG_{}_step_{}_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(i, j, TR, shots, input_shape, input_shape, meta_iters, version, normalize))
+                piccounter = piccounter + 1
 
     print(" ** Removing done. %s files removed." % (piccounter))
 
-    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling)):
-        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
+    if os.path.exists("REPT-GRAPHS/REP_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}". format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture)):
+        shutil.rmtree("REPT-GRAPHS/REP_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}". format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture))
     
 
-def filemover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer, maxpooling):
+def filemover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer, maxpooling, architecture, learning_rate):
 
     print('\n ** Moving created files to a certain folder.')
     counter = 0
@@ -281,31 +301,31 @@ def filemover(TR, version, shots, input_shape, meta_iters, normalize, activation
         os.mkdir('REPT-GRAPHS')
         print(" ** Done!")
     print(" ** Checking if there's an REP folder...")
-    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling)):
+    if os.path.exists("REPT-GRAPHS/REP_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}". format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture)):
         print(' ** Yes. There is. Trying to delete and renew...')
-        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
-        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
+        shutil.rmtree("REPT-GRAPHS/REP_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}". format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture))
+        os.mkdir("REPT-GRAPHS/REP_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}". format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture))
         print(' ** Done!')
     else:
         print(" ** None found. Creating one.")
-        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
+        os.mkdir("REPT-GRAPHS/REP_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}". format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture))
         print(" ** Done!")
 
-    if os.path.exists("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling)):
+    if os.path.exists("REPT-GRAPHS/REP_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}/SAMPLES". format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture)):
         print(' ** Yes. There is. Trying to delete and renew...')
-        shutil.rmtree("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
-        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
+        shutil.rmtree("REPT-GRAPHS/REP_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}/SAMPLES". format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture))
+        os.mkdir("REPT-GRAPHS/REP_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}/SAMPLES". format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture))
         print(' ** Done!')
     else:
         print(" ** None found. Creating one.")
-        os.mkdir("REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}/SAMPLES". format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
+        os.mkdir("REPT-GRAPHS/REP_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}/SAMPLES". format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture))
         print(" ** Done!")
 
-    dest1 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}'. format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
-    dest2 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}/SAMPLES'. format(TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling))
+    dest1 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}'. format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture))
+    dest2 = ('/home/kayque/LENSLOAD/REPT-GRAPHS/REP_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}/SAMPLES'. format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture))
 
-    if os.path.exists('./Code_data_version_%s.csv' % version):
-        shutil.move('./Code_data_version_%s.csv' % version, dest1)
+    if os.path.exists('./Code_data_version_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}.csv'. format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture)):
+        shutil.move('./Code_data_version_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}.csv'. format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture), dest1)
         counter = counter + 1
     if os.path.exists('./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
         shutil.move("./Accuracies_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(TR, shots, input_shape, input_shape, meta_iters, version, normalize), dest1)
@@ -342,6 +362,14 @@ def filemover(TR, version, shots, input_shape, meta_iters, normalize, activation
                 counter = counter + 1   
             if os.path.exists('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}_stage_{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize, b)):
                 shutil.move('./ROCLensDetectNet_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}_stage_{}.png'. format(TR, shots, input_shape, input_shape, meta_iters, version, normalize, b), dest1)
+                counter = counter + 1
+    
+    phase = ("train", "test")
+    step = ("Before Norm", "Normalized", "Resized", "Resized & Normalized")
+    for i in phase:
+        for j in step:
+            if os.path.exists("Color_Hist_IMG_{}_step_{}_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(i, j, TR, shots, input_shape, input_shape, meta_iters, version, normalize)):
+                shutil.move("Color_Hist_IMG_{}_step_{}_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(i, j, TR, shots, input_shape, input_shape, meta_iters, version, normalize), dest2)
                 counter = counter + 1
     print(" ** Moving done. %s files moved." % counter)
     print(dest1)
@@ -467,10 +495,10 @@ def conv_window(vector):
     vec_y = np.convolve(w / w.sum(), vec_s, mode="valid")
     return vec_y
 
-def roc_curve_graph(fpr, tpr, auc, TR, shots, input_shape, meta_iters, version, normalize):
+def roc_curve_graph(fpr, tpr, auc, TR, shots, input_shape, meta_iters, version, normalize, f1_score, f001_score):
     plt.figure()
     plt.plot([0, 1], [0, 1], 'k--') # k = color black
-    plt.plot(fpr, tpr, label="AUC: %.3f" % auc, linewidth=3) # for color 'C'+str(j), for j[0 9]
+    plt.plot(fpr, tpr, label="AUC: %.3f, F1: %.3f, F001: %.3f." % (auc, f1_score, f001_score), linewidth=3) # for color 'C'+str(j), for j[0 9]
     plt.legend(loc='lower right', ncol=1, mode="expand")
     plt.title('ROC')
     plt.xlabel('false positive rate', fontsize=14)
@@ -571,3 +599,172 @@ def distrib_graph(y_data, y_val, y_test, classes, TR):
     ax.set_title('Dataset distribution')
     ax.legend(loc='lower right')
     fig.savefig("TrainTest_rate_TR_{}.png". format(TR))
+
+def class_choose(y_data, x):
+    y_d = (y_data == x)
+    return y_d
+
+def extraction(image, label):
+    # This function will shrink the Omniglot images to the desired size,
+    # scale pixel values and convert the RGB image to grayscale
+    image = tf.image.convert_image_dtype(image, tf.float32)
+    image = tf.image.rgb_to_grayscale(image)
+    image = tf.image.resize(image, [56, 56])
+    return image, label
+
+def resize_image(x_datas, y_data, input_shape, num_channels):
+    print("\n ** Resizing images...")
+    x_data = np.zeros(shape=(1,4))
+    for y in range(len(y_data)):
+        for x in range(num_channels):
+            image = Image.fromarray(x_datas[y,:,:,x])
+            image.resize(size=(input_shape, input_shape))
+            image = np.asarray(image)
+            x_data = np.append(x_data, np.array([image]), axis=2)
+            x_data = np.array(x_data)
+    print(" ** resized to: ", x_data.shape)
+    return x_data
+
+def basic_conv_model(normalize, dropout, maxpooling, activation_layer, output_layer, input_shape, num_channels, filters, kernel_size, padding, learning_rate, optimizer, num_classes):
+    def conv_bn(x):
+        x = layers.Conv2D(filters=64, kernel_size=5, padding="same")(x)
+        if normalize == "BatchNormalization":
+            x = layers.BatchNormalization()(x)
+        if maxpooling == "yes":
+            x = layers.MaxPooling2D(pool_size=(2, 2))(x)
+        x = layers.Dropout(dropout)(x)
+        if activation_layer == "relu":
+            x = layers.ReLU()(x)
+            return x
+        elif activation_layer == "softmax":
+            return keras.activations.softmax(x)
+        elif activation_layer == "sigmoid":
+            return keras.activations.sigmoid(x)
+
+    inputs = layers.Input(shape=(input_shape, input_shape, num_channels))
+    x = conv_bn(inputs)
+    x = conv_bn(x)
+    x = conv_bn(x)
+    x = conv_bn(x)
+    x = layers.Flatten()(x)
+    outputs = layers.Dense(num_classes, activation=output_layer)(x)
+    model = keras.Model(inputs=inputs, outputs=outputs)
+    if optimizer == "SGD":
+        optimizer = keras.optimizers.SGD(learning_rate=learning_rate)
+    elif optimizer == "Adam":
+        optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
+    return model
+
+def ResNet_Sequential(x_data, input_shape, output_layer):
+    model = Sequential()
+    model.add(Convolution2D(64, (3, 3), input_shape=(x_data.shape[1],input_shape,input_shape), data_format='channels_first'))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    model.add(Convolution2D(128, (3, 3), data_format='channels_first')) 
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    model.add(Convolution2D(256, (3, 3), data_format='channels_first')) 
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    model.add(Convolution2D(512, (3, 3), data_format='channels_first')) 
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    #model.add(Dropout(0.5)) # 0.2
+    model.add(Flatten())
+
+    model.add(Dense(512)) 
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dense(256)) 
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dense(128))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dense(64)) 
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Dense(2))
+    model.add(Dense(2, activation= output_layer)) 
+    return model
+
+def multiclass_roc_graphs(num_classes, y_test, x_test, model, TR, shots, input_shape, meta_iters, version, normalize):
+    print(" ** Generating roc graphs...")
+    lauc, AUCall, FPRall, TPRall, f1s, f001s = ([] for i in range(6))
+    for j in range(num_classes):
+        y_test = (y_test == j)
+        print(test_l)
+        tpr, fpr, auc, auc2, thres = ROCCurveCalculate(y_test, x_test, model)
+        lauc = np.append(lauc, auc)
+        AUCall.append(auc2)
+        FPRall.append(fpr)
+        TPRall.append(tpr)
+        roc_curve_graph_series(fpr, tpr, auc, TR, shots, input_shape, meta_iters, version, normalize, j)
+    print('\n ** Generating ultimate ROC graph...')
+    medians_y, medians_x, lowlim, highlim = ([] for i in range(4))
+
+    plt.figure()
+    plt.plot([0, 1], [0, 1], 'k--') # k = color black
+
+    mauc = np.percentile(lauc, 50.0)
+    mAUCall = np.percentile(AUCall, 50.0)
+    plt.title('Median ROC over %s characters' % (num_classes))
+    plt.xlabel('false positive rate', fontsize=14)
+    plt.ylabel('true positive rate', fontsize=14)
+
+    for num in range(0,int(thres),1):
+        lis = [item[num] for item in TPRall]
+        los = [item[num] for item in FPRall]
+            
+        medians_x.append(np.percentile(los, 50.0))
+        medians_y.append(np.percentile(lis, 50.0))
+        lowlim.append(np.percentile(lis, 15.87))
+        highlim.append(np.percentile(lis, 84.13))
+        
+    lowauc = metrics.auc(medians_x, lowlim)
+    highauc = metrics.auc(medians_x, highlim)
+
+    print(lowauc, mAUCall, highauc)
+
+    plt.plot(medians_x, medians_y, 'b', label = 'AUC: %s' % mauc, linewidth=3)  
+    plt.fill_between(medians_x, medians_y, lowlim, color='blue', alpha=0.3, interpolate=True)
+    plt.fill_between(medians_x, highlim, medians_y, color='blue', alpha=0.3, interpolate=True)
+    plt.legend(loc='lower right', ncol=1, mode="expand")
+
+    plt.savefig("ROCLensDetectNet_Full_%s.png" % TR)
+
+def analyze_data(x_data, y_data, dataset_size, TR, shots, input_shape, meta_iters, version, normalize, step, phase):
+    colors = ("r", "g", "b")
+    channels = (0, 1, 2)
+    fraction = 1
+    percount = 0
+    print("\n ** Generating data_analysis graph...")
+    plt.figure()
+    #if step == "Normalized" or step == "Resized & Normalized":
+    #    plt.xlim([0,3])
+    #else:
+    plt.xlim([0,256])
+    for z in range(int(dataset_size/fraction)):
+        perc = int(z/int(dataset_size)*100)
+        if perc == percount:
+            print(" -- fraction done: %s percent" % perc)
+            percount = percount + 1
+        image = x_data[z]
+        for channel, color in zip(channels, colors):
+            histogram, bin_edges = np.histogram(image[:,:,channel], bins=256, range=(0, 256)
+            )
+            plt.plot(bin_edges[0:-1], histogram, color=color)
+    plt.xlabel("Color value")
+    plt.ylabel("Pixels")
+    plt.grid()
+    plt.title("Color Histogram: %s-data, %s" % (phase, step))
+    plt.savefig("Color_Hist_IMG_{}_step_{}_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(phase, step, TR, shots, input_shape, input_shape, meta_iters, version, normalize))
+

@@ -1,7 +1,13 @@
-import numpy as np, os, random, shutil, sklearn, wget, zipfile, tarfile, matplotlib.pyplot as plt
-import bisect, cv2, tensorflow as tf, pandas as pd, h5py, time, csv
+import numpy as np, os, random, shutil, sklearn, zipfile, tarfile, matplotlib.pyplot as plt
+import bisect, cv2, tensorflow as tf, pandas as pd, h5py, time, csv, warnings
 from tensorflow import keras
-from keras.applications.resnet50 import ResNet50
+
+from keras.applications.resnet50 import ResNet50#, VGG16, InceptionV3
+from keras.applications.vgg16 import VGG16
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.vgg16 import preprocess_input
+from keras.applications import InceptionV3
+
 from tensorflow.keras import layers
 from pathlib import Path
 from PIL import Image
@@ -12,17 +18,21 @@ from sklearn.metrics import roc_auc_score, log_loss
 from keras import backend as K
 from keras.layers import Input
 from collections import Counter
-from data_generator03 import Dataset
+from data_generator01 import Dataset
 from rept_utilities import data_downloader, ROCCurveCalculate, toimage, filemover, fileremover
-from rept_utilities import save_image, save_clue, conv_window, distrib_graph, basic_conv_model
-from rept_utilities import examples_graph, roc_curve_graph, acc_graph, loss_graph, FScoreCalc, multiclass_roc_graphs
+from rept_utilities import save_image, save_clue, conv_window, distrib_graph, class_choose
+from rept_utilities import examples_graph, roc_curve_graph, acc_graph, loss_graph, FScoreCalc
+from rept_utilities import basic_conv_model, ResNet_Sequential
 
+warnings.filterwarnings("ignore")
 Path('/home/kayque/LENSLOAD/').parent
 os.chdir('/home/kayque/LENSLOAD/')
+
+print("Num GPUs Available: ", len(tf.test.gpu_device_name()))
 ##################################################
 #PARAMETERS SECTION
 ###################################################
-learning_rate = 0.003 ###########ORIGINALLY 0.003 - CHANGED ON VERSION 4
+learning_rate = 0.0001 ###########ORIGINALLY 0.003 - CHANGED ON VERSION 4
 meta_step_size = 0.25
 
 inner_batch_size = 100    ####ORIGINALLY 25     -100
@@ -40,18 +50,18 @@ index = 0
 eval_interval = 1
 train_shots = 80        ##ORIGINALLY 20   -80
 shots = 20             ###ORIGINALLY 5    -20
-num_classes = 5   #ORIGINALLY 5 FOR OMNIGLOT DATASET
-input_shape = 28  #originally 28 for omniglot
+num_classes = 2   #ORIGINALLY 5 FOR OMNIGLOT DATASET
+input_shape = 32  #originally 28 for omniglot  ###MUST BE AT LEAST 75 FOR INCEPTION
 rows = 2
 cols = 10
 num_channels = 3
 activation_layer = "relu"
 output_layer = "sigmoid"    #original = softmax for REPTILE
 normalize = 'BatchNormalization' #or 'none'
-maxpooling = "no"
-optimizer = "Adam"
-dropout = 0.2
-architecture = "Basic-MNIST"
+maxpooling = "includeTopFalse"
+dropout = 0.5
+architecture = "ResNet50"
+optimizer = "SGD"
 classes = ['lens', 'not-lens']
 
 print("\n\n\n ******** INITIALYZING CODE - REPTILE ********* \n ** Chosen parameters:")
@@ -78,34 +88,72 @@ fileremover(TR, version, shots, input_shape, meta_iters, normalize, activation_l
 ###DOWNLOAD DATASET
 data_downloader() 
 ###SAVE_CSV WITH CODE DATA.
-with open('Code_data_version_%s.csv' % version, 'w', newline='') as file:
+with open('Code_data_version_{}_learning_rate_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_norm-{}_version_{}_activation_layer_{}_output_layer_{}_maxpooling_{}_arch_{}.csv'. format(learning_rate, TR, shots, input_shape, input_shape, meta_iters, normalize, version, activation_layer, output_layer, maxpooling, architecture), 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(code_data)
 
 ###IMPORT DATASET TO CODE
-import mnist
-x_test = mnist.test_images()
-y_test = mnist.test_labels()
-x_test = (x_test - np.nanmin(x_test))/np.ptp(x_test)
-x_test = np.expand_dims(x_test, axis=3)
+path = os.getcwd() + "/" + "lensdata/"
+labels = pd.read_csv(path + 'y_data20000fits.csv',delimiter=',', header=None)
+y_data = np.array(labels, np.uint8)
+x_datasaved = h5py.File(path + 'x_data20000fits.h5', 'r')
+x_datas = x_datasaved['data']
+x_datas = x_datas[:,:,:,0:num_channels]
+
+print(" ** Shuffling data...")
+y_vec = np.array([i for i in range(int(len(y_data)))])
+np.random.shuffle(y_vec)
+y_data = y_data[y_vec]
+x_datas = x_datas[y_vec]
+
+index = save_clue(x_datas, y_data, TR, version, 1, input_shape, 5, 5, index)
+#x_datas = (x_datas - np.nanmin(x_datas))/np.ptp(x_datas)
+
+print(x_datas.shape)
+x_data = tf.image.resize(x_datas, [input_shape, input_shape], preserve_aspect_ratio=True)
+x_data = np.array(x_data)
+print(x_data.shape)
+
+x_test = x_data[(TR+vallim):int(len(y_data)),:,:,:]
+y_test = y_data[(TR+vallim):int(len(y_data))]
+
+distrib_graph(y_data[0:TR], y_data[TR:(TR+vallim)], y_data[(TR+vallim):int(len(y_data))], classes, TR)
 
 print("\n ** Building dataset functions:")
 print(" ** Train_dataset is bein imported...")
-train_dataset = Dataset(split="train", version=version, TR=TR, 
+train_dataset = Dataset(x_data=x_data, y_data=y_data, split="train", version=version, TR=TR, 
 vallim=vallim, index=index, input_shape=input_shape, num_channels=num_channels)
 print(train_dataset)
 print(" ** Test_dataset is bein imported...")
-test_dataset = Dataset(split="test", version=version, TR=TR, 
+test_dataset = Dataset(x_data=x_data, y_data=y_data, split="test", version=version, TR=TR, 
 vallim=vallim, index=index, input_shape=input_shape, num_channels=num_channels)
 print(test_dataset)
 
-#examples_graph(rows, cols, train_dataset, index, TR, shots, input_shape, meta_iters, version, normalize)
+examples_graph(rows, cols, train_dataset, index, TR, shots, input_shape, meta_iters, version, normalize)
 
 print(" ** Network building stage...")
 
-model = basic_conv_model(normalize, dropout, maxpooling, activation_layer, output_layer, input_shape, num_channels, 64, 3, "same", learning_rate, optimizer, num_classes)
+img_shape = (x_data.shape[1], x_data.shape[2], x_data.shape[3])
+img_input = Input(shape=img_shape)
+if architecture == "ResNet50":
+    model = ResNet50(include_top=True, weights=None, input_tensor=img_input, input_shape=img_shape, classes=2, pooling=None)
+elif architecture == "VGG16":
+    model = VGG16(include_top=False, weights=None, input_tensor=img_input, input_shape=img_shape, classes=2, pooling=None)
+    x_data = preprocess_input(x_data)
+elif architecture == "InceptionV3":
+    model = InceptionV3(include_top=False, weights=None, input_tensor=img_input, input_shape=img_shape, classes=2, pooling=None)
+elif architecture == "Basic":
+    model = basic_conv_model(normalize, dropout, maxpooling, activation_layer, output_layer, input_shape, num_channels, 128, 3, "same", learning_rate, optimizer, num_classes)
+elif architecture == "ResNet_Sequential":
+    model = ResNet_Sequential(x_data, input_shape)
+else:
+    raise Exception(" Please make sure you have typed network-type correctly.")
+
+optimizer = keras.optimizers.SGD(learning_rate=learning_rate)
+#optimizer = keras.optimizers.SGD(learning_rate=learning_rate)
 model.summary()
-model.compile(loss= 'categorical_crossentropy', optimizer=optimizer, run_eagerly=True)
+model.compile(loss='categorical_crossentropy', optimizer=optimizer, run_eagerly=True)
+plot_model(model,  to_file="model_REPTILE_version_%s.png" % version)
 
 print(" ** Network successfully built.")
 print("\n ** INITIALYZING REPTILE NETWORK.")
@@ -124,7 +172,7 @@ try:
         old_vars = model.get_weights()  # Temporarily save the weights from the model.
         mini_dataset = train_dataset.get_mini_dataset(
             inner_batch_size, inner_iters, train_shots,
-            num_classes, num_channels)   # Get a sample from the full dataset.
+            num_classes, input_shape, num_channels)   # Get a sample from the full dataset.
         #lab = blind_dataset.get_mini_dataset(
           #          inner_batch_size, inner_iters, train_shots, num_classes, num_channels)
         #print(lab)
@@ -156,7 +204,7 @@ try:
                 hg_loss, mn_loss, lw_loss = ([] for i in range(3))
                 # Sample a mini dataset from the full dataset.
                 train_set, test_images, test_labels = dataset.get_mini_dataset(
-                    eval_batch_size, eval_iters, shots, num_classes, num_channels, split="training"
+                    eval_batch_size, eval_iters, shots, num_classes, input_shape, num_channels, split="training"
                 )
                 print(" -- TRAINSET:", train_set)   ##REPEAT_DATASET HAS NO ATTRIBUTE "SHAPE"
                 #print(" -- TESTIMAGES:")
@@ -178,12 +226,12 @@ try:
                         #print("loss: ", loss)
                     grads = tape.gradient(loss, model.trainable_weights)
                     optimizer.apply_gradients(zip(grads, model.trainable_weights))
-                #test_preds = model.predict(test_images)
-                test_preds = model.predict_generator(test_images)
-                #test_preds = tf.argmax(test_preds).numpy()
-                num_correct = (test_preds == test_labels).sum()
-                # Reset the weights after getting the evaluation accuracies.
+                test_preds = model.predict(test_images)
                 print(test_preds, test_labels)
+                test_preds = tf.argmax(test_preds).numpy()
+                print(test_preds, test_labels)
+                num_correct = sum(1 for a, b in zip(test_preds, test_labels) if a == b[0])
+                #num_correct = (test_preds == test_labels).sum()
                 mean_loss.append(log_loss(test_labels, test_preds))
                 # Reset the weights after getting the evaluation accuracies.
                 model.set_weights(old_vars)
@@ -193,6 +241,8 @@ try:
             tes_losses.append(mean_loss[1])
             training.append(accuracies[0])
             testing.append(accuracies[1])
+            print("train_acc:", training)
+            print("test_acc:", testing)
             if meta_iter % 100 == 0:
                 print(
                     " ** batch %d: train=%f test=%f" % (meta_iter, accuracies[0], accuracies[1])
@@ -207,9 +257,11 @@ try:
 
     acc_graph(test_y, train_y, TR, shots, input_shape, meta_iters, version, normalize)
     loss_graph(tra_loss, tes_loss, TR, shots, input_shape, meta_iters, version, normalize)
-    multiclass_roc_graphs(num_classes, y_test, x_test, model, TR, shots, input_shape, meta_iters, version, normalize)
 
+    test_preds = model.predict(test_images)
+    tpr, fpr, auc, auc2, thres = ROCCurveCalculate(y_test, x_test, model)
     f1_score, f001_score = FScoreCalc(y_test, x_test, model)
+    roc_curve_graph(fpr, tpr, auc, TR, shots, input_shape, meta_iters, version, normalize, f1_score, f001_score)
 
 except AssertionError as error:
     print(error)

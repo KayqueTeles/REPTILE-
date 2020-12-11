@@ -1,7 +1,7 @@
 import numpy as np, os, random, shutil, sklearn, wget, zipfile, tarfile, matplotlib.pyplot as plt
-import bisect, cv2, tensorflow as tf, pandas as pd, h5py, time, csv
+import bisect, cv2, tensorflow as tf, pandas as pd, h5py, time, csv, warnings
 from tensorflow import keras
-from keras.applications.resnet50 import ResNet50, VGG16, InceptionV3
+from keras.applications.resnet50 import ResNet50#, VGG16, InceptionV3
 from tensorflow.keras import layers
 from pathlib import Path
 from PIL import Image
@@ -14,21 +14,27 @@ from keras.layers import Input
 from collections import Counter
 from data_generator01 import Dataset
 from rept_utilities import data_downloader, ROCCurveCalculate, toimage, filemover, fileremover
-from rept_utilities import save_image, save_clue, conv_window, distrib_graph
+from rept_utilities import save_image, save_clue, conv_window, distrib_graph, class_choose
 from rept_utilities import examples_graph, roc_curve_graph, acc_graph, loss_graph, FScoreCalc
 
+warnings.filterwarnings("ignore")
 Path('/home/kayque/LENSLOAD/').parent
 os.chdir('/home/kayque/LENSLOAD/')
+
+print("Num GPUs Available: ", len(tf.test.gpu_device_name()))
+print("\n ## Tensorflow version: ", tf.__version__)
+print(" ## Is GPU available? ", tf.config.list_physical_devices('GPU'))
+os.environ["CUDA_VISIBLE_DEVICES"]="0, 1"
 ##################################################
 #PARAMETERS SECTION
 ###################################################
-learning_rate = 0.01 ###########ORIGINALLY 0.003 - CHANGED ON VERSION 4
+learning_rate = 0.0001 ###########ORIGINALLY 0.003 - CHANGED ON VERSION 4
 meta_step_size = 0.25
 
-inner_batch_size = 400    ####ORIGINALLY 25     -100
-eval_batch_size = 400    ###ORIGINALLY 25   -100
+inner_batch_size = 100    ####ORIGINALLY 25     -100
+eval_batch_size = 100    ###ORIGINALLY 25   -100
 
-meta_iters = 1000        #ORIGINALLY 2000    -5000
+meta_iters = 2000        #ORIGINALLY 2000    -5000
 eval_iters = 5          ###ORIGINALLY 5     -20
 inner_iters = 4            ##ORIGINALLY 4   -19
 dataset_size = 20000
@@ -38,10 +44,10 @@ version = 29
 index = 0
 
 eval_interval = 1
-train_shots = 200        ##ORIGINALLY 20   -80
-shots = 200             ###ORIGINALLY 5    -20
+train_shots = 80        ##ORIGINALLY 20   -80
+shots = 20             ###ORIGINALLY 5    -20
 num_classes = 2   #ORIGINALLY 5 FOR OMNIGLOT DATASET
-input_shape = 101  #originally 28 for omniglot
+input_shape = 50  #originally 28 for omniglot
 rows = 2
 cols = 10
 num_channels = 3
@@ -51,7 +57,7 @@ normalize = 'BatchNormalization' #or 'none'
 maxpooling = "yes"
 dropout = 0.0
 architecture = "ResNet50"
-initialization = 'imagenet'
+optimizer = "SGD"
 classes = ['lens', 'not-lens']
 
 print("\n\n\n ******** INITIALYZING CODE - REPTILE ********* \n ** Chosen parameters:")
@@ -69,13 +75,12 @@ code_data =[["learning rate", learning_rate],
             ["architecture", architecture],
             ["activation_layer", activation_layer],
             ["output_layer", output_layer],
-            ["initialization", initialization],
+            ["optimizer", optimizer],
             ["normalization", normalize],["maxpooling", maxpooling],
             ["dropout", dropout], ["VERSION", version]]
 print(code_data)
-filemover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer, maxpooling)
 ###CLEAN UP PREVIOUS FILES
-fileremover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer, maxpooling)
+fileremover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer, maxpooling, architecture, learning_rate)
 ###DOWNLOAD DATASET
 data_downloader() 
 ###SAVE_CSV WITH CODE DATA.
@@ -88,17 +93,22 @@ path = os.getcwd() + "/" + "lensdata/"
 labels = pd.read_csv(path + 'y_data20000fits.csv',delimiter=',', header=None)
 y_data = np.array(labels, np.uint8)
 x_datasaved = h5py.File(path + 'x_data20000fits.h5', 'r')
-x_data = x_datasaved['data']
-x_data = x_data[:,:,:,0:num_channels]
-
-index = save_clue(x_data, y_data, TR, version, 1, input_shape, 5, 5, index)
-#x_data = (x_data - np.nanmin(x_data))/np.ptp(x_data)
+x_datas = x_datasaved['data']
+x_datas = x_datas[:,:,:,0:num_channels]
 
 print(" ** Shuffling data...")
 y_vec = np.array([i for i in range(int(len(y_data)))])
 np.random.shuffle(y_vec)
 y_data = y_data[y_vec]
-x_data = x_data[y_vec]
+x_datas = x_datas[y_vec]
+
+index = save_clue(x_datas, y_data, TR, version, 1, input_shape, 5, 5, index)
+x_datas = (x_datas - np.nanmin(x_datas))/np.ptp(x_datas)
+
+print(x_datas.shape)
+x_data = tf.image.resize(x_datas, [input_shape, input_shape], preserve_aspect_ratio=True)
+x_data = np.array(x_data)
+print(x_data.shape)
 
 x_test = x_data[(TR+vallim):int(len(y_data)),:,:,:]
 y_test = y_data[(TR+vallim):int(len(y_data))]
@@ -119,28 +129,10 @@ examples_graph(rows, cols, train_dataset, index, TR, shots, input_shape, meta_it
 
 print(" ** Network building stage...")
 
-#ORIGINAL: KERNEL_SIZE = 3, STRIDES = 2, PADDING = "SAME", FILTERS = 64
-#def conv_bn(x):
-#    x = layers.Conv2D(filters=64, kernel_size=5, padding="same")(x)
-    #x = layers.BatchNormalization()(x)
-#    x = layers.MaxPooling2D(pool_size=(2, 2))(x)
-#    x = layers.Dropout(dropout)(x)
-#    return layers.ReLU()(x)
-    #return keras.activations.softmax(x)
-    #return keras.activations.sigmoid(x)
-
-#inputs = layers.Input(shape=(input_shape, input_shape, num_channels))
-#x = conv_bn(inputs)
-#x = conv_bn(x)
-#x = conv_bn(x)
-#x = conv_bn(x)
-#x = layers.Flatten()(x)
-#outputs = layers.Dense(num_classes, activation=output_layer)(x)
-#model = keras.Model(inputs=inputs, outputs=outputs)
-##model.compile()  <-- ORIGINAL!
 img_shape = (x_data.shape[1], x_data.shape[2], x_data.shape[3])
 img_input = Input(shape=img_shape)
-model = ResNet50(include_top=True, weights='imagenet', input_tensor=img_input, input_shape=img_shape, classes=2, pooling=None)
+model = ResNet50(include_top=True, weights=None, input_tensor=img_input, input_shape=img_shape, classes=2, pooling=None)
+#optimizer = keras.optimizers.SGD(learning_rate=learning_rate)
 optimizer = keras.optimizers.SGD(learning_rate=learning_rate)
 model.summary()
 model.compile(loss= 'categorical_crossentropy', optimizer=optimizer, run_eagerly=True)
@@ -163,7 +155,7 @@ try:
         old_vars = model.get_weights()  # Temporarily save the weights from the model.
         mini_dataset = train_dataset.get_mini_dataset(
             inner_batch_size, inner_iters, train_shots,
-            num_classes, num_channels)   # Get a sample from the full dataset.
+            num_classes, input_shape, num_channels)   # Get a sample from the full dataset.
         #lab = blind_dataset.get_mini_dataset(
           #          inner_batch_size, inner_iters, train_shots, num_classes, num_channels)
         #print(lab)
@@ -195,7 +187,7 @@ try:
                 hg_loss, mn_loss, lw_loss = ([] for i in range(3))
                 # Sample a mini dataset from the full dataset.
                 train_set, test_images, test_labels = dataset.get_mini_dataset(
-                    eval_batch_size, eval_iters, shots, num_classes, num_channels, split="training"
+                    eval_batch_size, eval_iters, shots, num_classes, input_shape, num_channels, split="training"
                 )
                 print(" -- TRAINSET:", train_set)   ##REPEAT_DATASET HAS NO ATTRIBUTE "SHAPE"
                 #print(" -- TESTIMAGES:")
@@ -208,7 +200,6 @@ try:
                     print(" -- images.shape from trainset cycle %s: %s" % (cycle, images.shape))
                     print(" -- labels.shape from trainset cycle %s: %s" % (cycle, labels.shape))
                     cycle = cycle + 1
-                    index = index + 1
                     #index = save_clue(images, labels, TR, version, 7, input_shape, 3, 3, index)
                     print(images[0].shape)
                     with tf.GradientTape() as tape:
@@ -230,6 +221,8 @@ try:
             tes_losses.append(mean_loss[1])
             training.append(accuracies[0])
             testing.append(accuracies[1])
+            print("train_acc:", training)
+            print("test_acc:", testing)
             if meta_iter % 100 == 0:
                 print(
                     " ** batch %d: train=%f test=%f" % (meta_iter, accuracies[0], accuracies[1])
@@ -250,8 +243,6 @@ try:
     roc_curve_graph(fpr, tpr, auc, TR, shots, input_shape, meta_iters, version, normalize)
 
     f1_score, f001_score = FScoreCalc(y_test, x_test, model)
-    writer.writerows([["f1", f1_score],
-                     ["f001", f001_score]])
 
 except AssertionError as error:
     print(error)
@@ -261,7 +252,7 @@ except AssertionError as error:
     #filemover(TR, version, shots, input_shape, meta_iters, normalize, output_layer)
     pass
 
-filemover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer, maxpooling)
+filemover(TR, version, shots, input_shape, meta_iters, normalize, activation_layer, output_layer, maxpooling, architecture, learning_rate)
 
 timee = int((time.perf_counter() - begin)/(60))
 print('\n ** Mission accomplished in %s minutes.' % timee)

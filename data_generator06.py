@@ -12,47 +12,26 @@ from keras import backend as K
 from keras.layers import Input
 from tensorflow.keras.utils import to_categorical
 from collections import Counter
-from rept_utilities import toimage, save_image, save_clue, resize_image
+from rept_utilities import toimage, save_image, save_clue, resize_image, extraction
+import tensorflow_datasets as tfds
 
 class Dataset:
-    def __init__(self, x_data, y_data, split, version, TR, vallim, index, input_shape, num_channels):
-        #split = "train" if training else "test"
+    def __init__(self, split, version, TR, vallim, index, input_shape, num_channels):
+        ds = tfds.load("omniglot", split=split, as_supervised=True, shuffle_files=False)
+        # Iterate over the dataset to get each individual image and its class,
+        # and put that data into a dictionary.
         self.data = {}
-        
-        if split == "train":
-            x_data = x_data[0:TR,:,:,:]
-            y_data = y_data[0:TR]
-            step = 2
-        else:
-            if split == "test":
-                x_data = x_data[TR:(TR+vallim),:,:,:]
-                y_data = y_data[TR:(TR+vallim)]
-                step = 3
 
-        print(" ** split:", split)
-
-        print(" ** x_data:  ", x_data.shape)
-        print(" ** y_data:  ", y_data.shape)
-
-        index = save_clue(x_data, y_data, TR, version, step, input_shape, 10, 10, index)
-        #y_data = to_categorical(y_data,num_classes=2)
-    
-        #####PUT TEMP_IMAGE IN X_DATA.SHAPES
-        for y in range(int(len(y_data))):
-            image = x_data[y,:,:,:]
-            rgb = toimage(image)
-            rgb = np.array(rgb)
-            img = Image.fromarray(rgb)
-            img = img.resize((input_shape, input_shape))
-            label = str(y_data[y])
+        for image, label in ds.map(extraction):
+            image = tf.image.resize(image, [input_shape, input_shape], preserve_aspect_ratio=True)
+            image = np.array(image)
+            print(image.shape)
+            #image = image
+            label = str(label)
             if label not in self.data:
                 self.data[label] = []
             self.data[label].append(image)
             self.labels = list(self.data.keys())
-        ###
-
-        print(" ** %s DATASET PREPARED!" % split)
-        ############################################3
 
     def get_mini_dataset(
         self, batch_size, repetitions, shots, num_classes, input_shape, num_channels, split="test"):
