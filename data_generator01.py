@@ -35,7 +35,6 @@ class Dataset:
         print(" ** y_data:  ", y_data.shape)
 
         index = save_clue(x_data, y_data, TR, version, step, input_shape, 10, 10, index)
-        #y_data = to_categorical(y_data,num_classes=2)
     
         #####PUT TEMP_IMAGE IN X_DATA.SHAPES
         for y in range(int(len(y_data))):

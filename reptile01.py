@@ -2,7 +2,8 @@ import numpy as np, os, random, shutil, sklearn, zipfile, tarfile, matplotlib.py
 import bisect, cv2, tensorflow as tf, pandas as pd, h5py, time, csv, warnings
 from tensorflow import keras
 
-from keras.applications.resnet50 import ResNet50#, VGG16, InceptionV3
+from keras.applications.resnet50 import ResNet50 #, VGG16, InceptionV3
+from keras.applications import ResNet101
 from keras.applications.vgg16 import VGG16
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.applications.vgg16 import preprocess_input
@@ -22,7 +23,7 @@ from data_generator01 import Dataset
 from rept_utilities import data_downloader, ROCCurveCalculate, toimage, filemover, fileremover
 from rept_utilities import save_image, save_clue, conv_window, distrib_graph, class_choose
 from rept_utilities import examples_graph, roc_curve_graph, acc_graph, loss_graph, FScoreCalc
-from rept_utilities import basic_conv_model, ResNet_Sequential
+from rept_utilities import basic_conv_model, ResNet_Generator
 
 warnings.filterwarnings("ignore")
 Path('/home/kayque/LENSLOAD/').parent
@@ -35,32 +36,33 @@ print("Num GPUs Available: ", len(tf.test.gpu_device_name()))
 learning_rate = 0.0001 ###########ORIGINALLY 0.003 - CHANGED ON VERSION 4
 meta_step_size = 0.25
 
-inner_batch_size = 100    ####ORIGINALLY 25     -100
-eval_batch_size = 100    ###ORIGINALLY 25   -100
+inner_batch_size = 25    ####ORIGINALLY 25     -100
+eval_batch_size = 25    ###ORIGINALLY 25   -100
 
 meta_iters = 2000        #ORIGINALLY 2000    -5000
 eval_iters = 5          ###ORIGINALLY 5     -20
 inner_iters = 4            ##ORIGINALLY 4   -19
 dataset_size = 20000
-TR = int(dataset_size*0.6)
-vallim = int(dataset_size*0.2)
-version = 29
+TR = int(dataset_size*0.8)
+vallim = int(dataset_size*0.1)
+version = 30
 index = 0
 
 eval_interval = 1
-train_shots = 80        ##ORIGINALLY 20   -80
-shots = 20             ###ORIGINALLY 5    -20
+train_shots = 20        ##ORIGINALLY 20   -80
+shots = 5             ###ORIGINALLY 5    -20
 num_classes = 2   #ORIGINALLY 5 FOR OMNIGLOT DATASET
-input_shape = 32  #originally 28 for omniglot  ###MUST BE AT LEAST 75 FOR INCEPTION
-rows = 2
+input_shape = 101  #originally 28 for omniglot  ###MUST BE AT LEAST 75 FOR INCEPTION
+rows = 2        ##
 cols = 10
 num_channels = 3
 activation_layer = "relu"
 output_layer = "sigmoid"    #original = softmax for REPTILE
 normalize = 'BatchNormalization' #or 'none'
-maxpooling = "includeTopFalse"
+maxpooling = "noney"
 dropout = 0.5
-architecture = "ResNet50"
+architecture = "ResNet101"
+
 optimizer = "SGD"
 classes = ['lens', 'not-lens']
 
@@ -129,10 +131,7 @@ test_dataset = Dataset(x_data=x_data, y_data=y_data, split="test", version=versi
 vallim=vallim, index=index, input_shape=input_shape, num_channels=num_channels)
 print(test_dataset)
 
-examples_graph(rows, cols, train_dataset, index, TR, shots, input_shape, meta_iters, version, normalize)
-
 print(" ** Network building stage...")
-
 img_shape = (x_data.shape[1], x_data.shape[2], x_data.shape[3])
 img_input = Input(shape=img_shape)
 if architecture == "ResNet50":
@@ -144,13 +143,14 @@ elif architecture == "InceptionV3":
     model = InceptionV3(include_top=False, weights=None, input_tensor=img_input, input_shape=img_shape, classes=2, pooling=None)
 elif architecture == "Basic":
     model = basic_conv_model(normalize, dropout, maxpooling, activation_layer, output_layer, input_shape, num_channels, 128, 3, "same", learning_rate, optimizer, num_classes)
-elif architecture == "ResNet_Sequential":
-    model = ResNet_Sequential(x_data, input_shape)
+elif architecture == "ResNet":
+    model = ResNet_Generator(input_shape, 32, num_classes, img_input)
+elif architecture == "ResNet101":
+    model = ResNet101(include_top=True, weights=None, input_tensor=img_input, input_shape=img_shape, classes=2, pooling=None)
 else:
     raise Exception(" Please make sure you have typed network-type correctly.")
 
 optimizer = keras.optimizers.SGD(learning_rate=learning_rate)
-#optimizer = keras.optimizers.SGD(learning_rate=learning_rate)
 model.summary()
 model.compile(loss='categorical_crossentropy', optimizer=optimizer, run_eagerly=True)
 plot_model(model,  to_file="model_REPTILE_version_%s.png" % version)
@@ -227,11 +227,8 @@ try:
                     grads = tape.gradient(loss, model.trainable_weights)
                     optimizer.apply_gradients(zip(grads, model.trainable_weights))
                 test_preds = model.predict(test_images)
-                print(test_preds, test_labels)
                 test_preds = tf.argmax(test_preds).numpy()
-                print(test_preds, test_labels)
-                num_correct = sum(1 for a, b in zip(test_preds, test_labels) if a == b[0])
-                #num_correct = (test_preds == test_labels).sum()
+                num_correct = (test_preds == test_labels).sum() #sum(1 for a, b in zip(test_preds, test_labels) if a == b[0])
                 mean_loss.append(log_loss(test_labels, test_preds))
                 # Reset the weights after getting the evaluation accuracies.
                 model.set_weights(old_vars)

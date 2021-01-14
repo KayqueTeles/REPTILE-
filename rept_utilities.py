@@ -10,11 +10,12 @@ from keras.layers import Input
 from collections import Counter
 from keras import models
 from keras.models import Sequential
-from keras import layers
 from keras.layers import Convolution2D
-from keras.layers import MaxPooling2D
-from keras.layers import Dense, Dropout, Flatten, Activation
+from tensorflow.keras.models import Model
+from keras.layers import MaxPooling2D, AveragePooling2D
+from keras.layers import Dense, Dropout, Flatten, Activation, Conv2D
 from keras.layers.normalization import BatchNormalization
+from tensorflow.keras.regularizers import l2
 
 ####################################################3#############
 ##############SOME NECESSARY FUNCTIONS############################
@@ -655,47 +656,6 @@ def basic_conv_model(normalize, dropout, maxpooling, activation_layer, output_la
         optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
     return model
 
-def ResNet_Sequential(x_data, input_shape, output_layer):
-    model = Sequential()
-    model.add(Convolution2D(64, (3, 3), input_shape=(x_data.shape[1],input_shape,input_shape), data_format='channels_first'))
-    model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-
-    model.add(Convolution2D(128, (3, 3), data_format='channels_first')) 
-    model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-
-    model.add(Convolution2D(256, (3, 3), data_format='channels_first')) 
-    model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-
-    model.add(Convolution2D(512, (3, 3), data_format='channels_first')) 
-    model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
-
-    #model.add(Dropout(0.5)) # 0.2
-    model.add(Flatten())
-
-    model.add(Dense(512)) 
-    model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(Dense(256)) 
-    model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(Dense(128))
-    model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(Dense(64)) 
-    model.add(BatchNormalization())
-    model.add(Activation('relu'))
-    model.add(Dense(2))
-    model.add(Dense(2, activation= output_layer)) 
-    return model
-
 def multiclass_roc_graphs(num_classes, y_test, x_test, model, TR, shots, input_shape, meta_iters, version, normalize):
     print(" ** Generating roc graphs...")
     lauc, AUCall, FPRall, TPRall, f1s, f001s = ([] for i in range(6))
@@ -768,3 +728,88 @@ def analyze_data(x_data, y_data, dataset_size, TR, shots, input_shape, meta_iter
     plt.title("Color Histogram: %s-data, %s" % (phase, step))
     plt.savefig("Color_Hist_IMG_{}_step_{}_{}_samples_{}_shots_{}x{}_size_{}_meta_iters_{}_version_norm-{}.png". format(phase, step, TR, shots, input_shape, input_shape, meta_iters, version, normalize))
 
+def ResNet_layer(inputs, num_filters=16, kernel_size=3, strides=1, activation_layer='relu', batch_normalization=True, conv_first=True):
+    """2D Convolution-Batch Normalization-Activation stack builder
+
+    ** Arguments:
+        inputs (tensor): input tensor from input image or previous layer
+        num_filters (int): Conv2D number of filters
+        kernel_size (int): Conv2D square kernel dimensions
+        strides (int): Conv2D square stride dimensions
+        activation_layer (string): activation_layer name
+        batch_normalization (bool): whether to include batch normalization
+        conv_first (bool): conv-bn-activation (True) or bn-activation-conv (False)
+    ** Returns
+        x (tensor): tensor as input to the next layer"""
+
+    conv = Conv2D(num_filters, kernel_size=kernel_size, strides=strides, padding='same', kernel_initializer='he_normal', kernel_regularizer=l2(1e-4))
+
+    x = inputs
+    if conv_first:
+        x = conv(x)
+        if batch_normalization:
+            x = BatchNormalization()(x)
+        if activation_layer is not None:
+            x = Activation(activation_layer)(x)
+    else:
+        if batch_normalization:
+            x = BatchNormalization()(x)
+        if activation_layer is not None:
+            x = Activation(activation_layer)(x)
+        x = conv(x)
+    return x
+
+def ResNet_Generator(input_shape, depth, num_classes, inputs):
+    """ResNet Version 1 Model builder [a]
+
+    Arguments:
+        input_shape (tensor): shape of input image tensor
+        depth (int): number of core convolutional layers
+        num_classes (int): number of classes (CIFAR10 has 10)
+
+    Returns:
+        model (Model): Keras model instance."""
+    if (depth - 2) % 6 != 0:
+        raise ValueError('depth should be 6n+2 (eg 20, 32, 44 in [a])')
+    #Start model definition.
+    num_filters = 16
+    num_res_blocks = int((depth - 2) / 6)
+
+    x = ResNet_layer(inputs=inputs)
+    # Instantiate the stack of residual units
+    for stack in range(3):
+        for res_block in range(num_res_blocks):
+            strides = 1
+            # first layer but not first stack
+            if stack > 0 and res_block == 0:  
+                strides = 2  # downsample
+            y = ResNet_layer(inputs=x,
+                             num_filters=num_filters,
+                             strides=strides)
+            y = ResNet_layer(inputs=y,
+                             num_filters=num_filters,
+                             activation_layer=None)
+            # first layer but not first stack
+            if stack > 0 and res_block == 0:  
+                # linear projection residual shortcut connection to match
+                # changed dims
+                x = ResNet_layer(inputs=x,
+                                 num_filters=num_filters,
+                                 kernel_size=1,
+                                 strides=strides,
+                                 activation_layer=None,
+                                 batch_normalization=False)
+            x = tf.keras.layers.add([x, y])
+            x = Activation('relu')(x)
+        num_filters *= 2
+
+    # Add classifier on top.
+    # v1 does not use BN after last shortcut connection-ReLU
+    x = AveragePooling2D(pool_size=8)(x)
+    y = Flatten()(x)
+    outputs = Dense(num_classes,
+                    activation='softmax',
+                    kernel_initializer='he_normal')(y)
+    # Instantiate model.
+    model = Model(inputs=inputs, outputs=outputs)
+    return model
